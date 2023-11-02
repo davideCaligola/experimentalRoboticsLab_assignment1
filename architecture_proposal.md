@@ -11,9 +11,9 @@ From the assignment specifications:
 camera frame!
 
 The package will consist of three nodes:
- - logic
- - robot_control
- - camera
+ - [logic node](#logic-node)
+ - [robot_control](#robot_control-node)
+ - [camera](#camera-node)
 
 Following a rough description of each node.
 
