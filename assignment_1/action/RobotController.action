@@ -1,0 +1,8 @@
+# goal definition
+string action
+---
+# result definition
+int8[] ids
+---
+# feedback
+int8[] ids
