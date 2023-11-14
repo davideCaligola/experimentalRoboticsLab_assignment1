@@ -2,7 +2,6 @@
 
 import rospy
 from cv_bridge import CvBridge
-import cv2
 from cv2 import aruco
 from sensor_msgs.msg import Image, CameraInfo
 from assignment_1.msg import RobotVision
@@ -10,10 +9,13 @@ from assignment_1.msg import RobotVision
 cam_center_x = 0
 cam_center_y = 0
 
+# publisher with data about collected image
 pub = rospy.Publisher('info_vision', RobotVision, queue_size = 10) 
 
-
 def camera_cb(camera_msg):
+    """
+    Calculates the camera center coordinates
+    """
 
     global cam_center_x, cam_center_y
 
@@ -22,6 +24,15 @@ def camera_cb(camera_msg):
 
 
 def img_cb(img_msg):
+    """
+    Publishes the information about
+     - marker id
+     - marker center coordinates
+     - marker corners coordinates
+    """
+
+    process_rate = 100
+    rate = rospy.Rate(process_rate)
 
     global cam_center_x, cam_center_y, pub
 
@@ -36,7 +47,6 @@ def img_cb(img_msg):
 
     if ids is not None:
     
-    
         marker_center_x = (corners[0][0][0][0]+ corners[0][0][1][0]+ corners[0][0][2][0]+ corners[0][0][3][0]) / 4
         marker_center_y = (corners[0][0][0][1]+ corners[0][0][1][1]+ corners[0][0][2][1]+ corners[0][0][3][1]) / 4
         
@@ -47,11 +57,6 @@ def img_cb(img_msg):
         top_left = [corners[0][0][1][0], corners[0][0][1][1]]
         bottom_left = [corners[0][0][2][0], corners[0][0][2][1]]
         bottom_right = [corners[0][0][3][0], corners[0][0][3][1]]
-        
-        print(top_right)
-        print(top_left)
-        print(bottom_left)
-        print(bottom_right)
         
         info_msg = RobotVision()
         
@@ -64,31 +69,27 @@ def img_cb(img_msg):
         info_msg.marker_bottom_right = bottom_right
 	
         pub.publish(info_msg)
-        
-        
-    else:
-    	print("None")
-        
+
+        rate.sleep()
 
 def main():
+    """
+    Subscribes to camera topics
+     - image_raw
+     - camera_info
+    """
 
-       
+    # subscribe to camera topics
     rospy.Subscriber('/camera/color/image_raw', Image, img_cb)
     rospy.Subscriber('/camera/color/camera_info', CameraInfo, camera_cb)
-    
-    #da inserire un publisher al nodo control che invia l'id, il centro del marker e il centro della camera (topic: vision_info)
     
     rospy.spin()
 
 if __name__=='__main__':
 
-	try:
-		rospy.init_node('robot_vision') 
-		
-		main()
-		
-		
-	except rospy.ROSInterruptException:
-		
-		print("Error client")
-		exit()
+    try:
+        rospy.init_node('robot_vision')
+        main()
+        
+    except rospy.ROSInterruptException as e:
+        print(e)

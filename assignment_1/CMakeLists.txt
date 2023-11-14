@@ -56,6 +56,8 @@ find_package(catkin REQUIRED COMPONENTS
  add_message_files(
    FILES
    RobotVision.msg
+   LogicState.msg
+   ControlAction.msg
  )
 
 ## Generate services in the 'srv' folder
@@ -74,9 +76,9 @@ add_action_files(
 ## Generate added messages and services with any dependencies listed here
  generate_messages(
    DEPENDENCIES
+   actionlib_msgs
    geometry_msgs
    std_msgs
-   actionlib_msgs
  )
 
 ################################################
@@ -112,7 +114,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES assignment_1
 #  CATKIN_DEPENDS aruco geometry_msgs roscpp rospy std_msgs
-   DEPENDS OpenCV
+  DEPENDS OpenCV
 )
 
 ###########

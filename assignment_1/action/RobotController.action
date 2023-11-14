@@ -1,8 +1,12 @@
 # goal definition
-string action
+int8 action
+int8 id
+float32 marker_side_th
 ---
-# result definition
-int8[] ids
+# result
+bool success
 ---
 # feedback
-int8[] ids
+# current id seen by the camera
+int8 id
+float32 marker_side

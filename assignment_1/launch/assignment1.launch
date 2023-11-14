@@ -3,7 +3,6 @@
   <arg name="gui" default="true"/>
   <arg name="world" default="empty"/>
 
-
   <include file="$(find rosbot_bringup)/launch/rosbot_gazebo.launch"></include>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
@@ -12,5 +11,13 @@
   </include>
   
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find rosbot_description)/rviz/mapping.rviz"/>
+
+  
+  <arg name="rate" default="20"/>
+  <param name="process_rate" value="$(arg rate)"/>
+  
+  <node name="robot_vision" pkg="assignment_1" type="robot_vision.py" output="screen"/>
+  <node name="robot_control" pkg="assignment_1" type="control_act_server.py" output="screen" />
+  <node name="robot_logic" pkg="assignment_1" type="logic.py" output="screen" required="true"/>
 
 </launch>
