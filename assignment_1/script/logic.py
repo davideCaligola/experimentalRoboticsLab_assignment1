@@ -210,8 +210,7 @@ def main():
     rospy.loginfo("action server 'robotController' found")
 
     # ordered list of marker ids to look for
-    # ids = [11, 12, 13, 15]
-    ids = [11, 12]
+    ids = [11, 12, 13, 15]
 
     # get process rate
     freq_rate = rospy.get_param("process_rate")
