@@ -180,6 +180,8 @@ class RobotControllerServer(object):
             x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
             y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
             
+            # consider just vertical side, since horizontal one could be seen sideways, thus,
+            # in some case, could never reach the threshold
             marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
             
             # send feedback on the current marker size
