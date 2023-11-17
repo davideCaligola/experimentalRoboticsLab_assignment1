@@ -3,7 +3,15 @@
   <arg name="gui" default="true"/>
   <arg name="world" default="empty"/>
 
-  <include file="$(find rosbot_bringup)/launch/rosbot_gazebo.launch"></include>
+
+  <rosparam command="load" file="$(find assignment_1)/joint_state_controller.yaml" />
+  <node name="joint_state_controller_spawner" pkg="controller_manager" type="spawner" output="screen" args="joint_state_controller" />
+
+  <param name="robot_description" command="$(find xacro)/xacro '$(find rosbot_description)/urdf/rosbot.xacro'"/>
+
+  <node name="rosbot_spawn" pkg="gazebo_ros" type="spawn_model" output="screen" args="-urdf -param robot_description -model rosbot" />
+
+  <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="gui" value="$(arg gui)"/>
@@ -11,7 +19,7 @@
   </include>
   
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find rosbot_description)/rviz/mapping.rviz"/>
-
+  
   
   <arg name="rate" default="20"/>
   <arg name="rate_vis" value="100"/>
@@ -22,5 +30,4 @@
   <node name="robot_vision" pkg="assignment_1" type="robot_vision.py" output="screen"/>
   <node name="robot_control" pkg="assignment_1" type="control_act_server.py" output="screen" />
   <node name="robot_logic" pkg="assignment_1" type="logic.py" output="screen" required="true"/>
-
 </launch>
