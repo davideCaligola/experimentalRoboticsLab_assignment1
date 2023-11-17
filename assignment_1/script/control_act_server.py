@@ -7,14 +7,6 @@ import assignment_1.msg as a1_msgs
 from assignment_1.msg import RobotVision
 from geometry_msgs.msg import Twist
 
-# id_marker = 0
-# vision_id = 0
-# camera_center = []
-# marker_center = []
-# marker_top_right = []
-# marker_top_left = []
-# marker_bottom_left = []
-# marker_bottom_right = []
 
 class RobotCtrl_base(object):
     """
