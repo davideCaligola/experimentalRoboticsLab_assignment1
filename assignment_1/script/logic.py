@@ -8,73 +8,61 @@ import assignment_1.msg as a1_msgs
 from assignment_1.msg import LogicState, ControlAction
 
 ctr_goal_status_sub = None  # subscriber to get controller goal status
-ctr_client = None           # client of control action server
+ctrl_client_search = None   # client of control action server for searching a marker id
+ctrl_client_reach = None    # client of control action server for reaching a marker id
 state = None                # state machine status
 marker_side_th = 175        # threshold for limit on getting close to the marker
 current_marker_id = None    # marker id currently looked for
 cycle_rate = None
 
-def search_marker_id_active_cb():
-    """
-    Updates the logic state machine status to wait to find the target marker
-    when the search goal becomes active    
 
-    :return: None
-    """
-    global state
-
-    state = LogicState.LOOKING_FOR_ID
-
-def search_marker_id_done_cb(goalStatus: GoalStatus, result: a1_msgs.RobotControllerResult):
+def search_marker_id_done_cb(goalStatus: GoalStatus, result: a1_msgs.RobotCtrl_searchResult):
     """
     Updates the logic state machine status to send the get close to the
     target market goal when the target marker id is found
 
     :param goalStatus: goal status of the current goal
     :type goalStatus: GoalStatus
+    :param result: search action result
     
     :return: None
     """
     
     global state
 
+    rospy.loginfo("logic - search result: " + str(result.success))
     if (result.success):
-        state = LogicState.SEND_GET_CLOSE
+        state = LogicState.SEND_REACH_ID
     else:
         rospy.loginfo("************* ERROR ****************")
         rospy.loginfo("Something went wrong while looking for the target marker id")
         state = LogicState.FINISH
 
-def get_close_to_marker_active_cb():
-    """
-    Updates the logic state machine status to wait to get close to the target marker
-    when the search goal becomes active    
 
-    :return: None
-    """
-    global state
-
-    state = LogicState.GETTING_CLOSE
-
-def get_close_to_marker_done_cb(goalStatus: GoalStatus, result: a1_msgs.RobotControllerResult):
+def reach_marker_done_cb(goalStatus: GoalStatus, result: a1_msgs.RobotCtrl_reachResult):
     """
     Updates the logic state machine status to send the id of the new target marker
     when the robot is close enough to the current target marker
 
     :param goalStatus: goal status of the current goal
     :type goalStatus: GoalStatus
+    :param result: reach action result
+    :type result: RobotCtrl_reachResult
 
     :return: None
     """
     
     global state
     
+    rospy.loginfo("logic - reach result: " + str(result.success))
+
     if (result.success):
-        state = LogicState.SEND_ID
+        state = LogicState.SEND_SEARCH_ID
     else:
         rospy.loginfo("************* ERROR ****************")
         rospy.loginfo("Something went wrong while getting close to the target marker")
         state = LogicState.FINISH
+
 
 def terminate_node():
     """
@@ -101,11 +89,11 @@ def start(ids: list):
     :return: None
     """
 
-    global ctr_client, state, current_marker_id, cycle_rate
+    global ctrl_client_reach, state, current_marker_id, cycle_rate
 
     # passing an empty list finishes the process
     if ids:
-        state = LogicState.SEND_ID
+        state = LogicState.SEND_SEARCH_ID
     else:
         state = LogicState.FINISH
 
@@ -113,22 +101,22 @@ def start(ids: list):
 
         # select target marker id and send request
         # to search for such a marker id
-        if state == LogicState.SEND_ID:
+        if state == LogicState.SEND_SEARCH_ID:
             if ids:
                 current_marker_id = ids.pop(0)
                 # create goal for looking for target marker id
-                ctr_goal = a1_msgs.RobotControllerGoal(
-                                action = ControlAction.SEARCH_ID,
-                                id = current_marker_id
-                            )
+                ctr_goal_search = a1_msgs.RobotCtrl_searchGoal(
+                                    id = current_marker_id
+                                )
 
                 # send the goal to action server
-                ctr_client.send_goal(ctr_goal,
-                                     active_cb = search_marker_id_active_cb,
-                                     done_cb = search_marker_id_done_cb
+                ctrl_client_search.send_goal(
+                                        ctr_goal_search,
+                                        done_cb = search_marker_id_done_cb
                                     )
 
-                state = LogicState.WAIT_FOR_GOAL_SEARCH_ACTIVE
+                # state = LogicState.WAIT_FOR_GOAL_SEARCH_ACTIVE
+                state = LogicState.LOOKING_FOR_ID
             
             # all target markers have been reached
             else:
@@ -140,21 +128,20 @@ def start(ids: list):
             pass
 
         # send request to get close to target marker
-        elif state == LogicState.SEND_GET_CLOSE:
+        elif state == LogicState.SEND_REACH_ID:
             # create goal for getting close to target marker
-            ctr_goal = a1_msgs.RobotControllerGoal(
-                            action=ControlAction.GET_CLOSE,
-                            marker_side_th = marker_side_th,
-                            id = current_marker_id
+            ctr_goal_reach = a1_msgs.RobotCtrl_reachGoal(
+                            id = current_marker_id,
+                            marker_side_th = marker_side_th
                         )
 
             # send goal to action server
-            ctr_client.send_goal(ctr_goal,
-                                 active_cb = get_close_to_marker_active_cb,
-                                 done_cb = get_close_to_marker_done_cb
+            ctrl_client_reach.send_goal(
+                                    ctr_goal_reach,
+                                    done_cb = reach_marker_done_cb
                                 )
 
-            state = LogicState.WAIT_FOR_GOAL_GET_CLOSE_ACTIVE
+            state = LogicState.GETTING_CLOSE
 
         elif state == LogicState.GETTING_CLOSE:
             # waiting for getting close enough to the marker
@@ -162,14 +149,6 @@ def start(ids: list):
 
         elif state == LogicState.FINISH:
             terminate_node()
-
-        elif state == LogicState.WAIT_FOR_GOAL_SEARCH_ACTIVE:
-            # waiting for activating goal for searching target marker id
-            pass
-
-        elif state == LogicState.WAIT_FOR_GOAL_GET_CLOSE_ACTIVE:
-            # wiating for activating goal for getting close to target marker
-            pass
         
         # exception handling for rate whne the process is terminated
         try:
@@ -182,30 +161,40 @@ def start(ids: list):
 def main():
     """
     Main function of the node
-      - initialize the node
-      - creates client for action server ``robotController``
-      - creates subscriber for topic ``/robotController/status`` of robot controller
-      - launches function `start` with the list of marker ids to look for. This function
-        handles the process phases.
+      - initializes the node
+      - creates client for action server ``robotCtrl_search``
+      - creates client for action server ``robotCtrl_reach``
+      - launches function `start` with the list of marker ids to look for.
+        This function handles the process phases.
 
     :return: None
     """
 
-    global ctr_goal_status_sub, ctr_client, cycle_rate
+    global ctr_goal_status_sub, ctrl_client_search, ctrl_client_reach, cycle_rate
 
     # initialize node
     rospy.init_node("robot_logic")
     
-    # client for controller
-    ctr_client = actionlib.SimpleActionClient(
-                    "robotController",
-                    a1_msgs.RobotControllerAction
+    # client for search action server controller
+    ctrl_client_search = actionlib.SimpleActionClient(
+                    "robotCtrl_search",
+                    a1_msgs.RobotCtrl_searchAction
                 )
 
-    rospy.loginfo("Waiting for action server 'robotController'...")
+    rospy.loginfo("Waiting for action server 'robotCtrl_search'...")
     
-    # wait for the server controller to be started
-    ctr_client.wait_for_server()
+    # client for reach action server controller
+    ctrl_client_reach = actionlib.SimpleActionClient(
+                    "robotCtrl_reach",
+                    a1_msgs.RobotCtrl_reachAction
+                )
+
+    rospy.loginfo("Waiting for action server 'robotCtrl_reach'...")
+
+    # wait for the search controller server to be started
+    ctrl_client_search.wait_for_server()
+    # wait for the reach controller server to be started
+    ctrl_client_reach.wait_for_server()
 
     rospy.loginfo("action server 'robotController' found")
 
@@ -226,5 +215,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # waiting time for GUI to load
+    rospy.sleep(7)
+
     main()
         

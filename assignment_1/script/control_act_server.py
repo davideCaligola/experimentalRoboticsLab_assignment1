@@ -4,59 +4,81 @@ import rospy
 import actionlib
 import math
 import assignment_1.msg as a1_msgs
-from assignment_1.msg import ControlAction, RobotVision
+from assignment_1.msg import RobotVision
 from geometry_msgs.msg import Twist
 
-id_marker = 0
-vision_id = 0
-camera_center = []
-marker_center = []
-marker_top_right = []
-marker_top_left = []
-marker_bottom_left = []
-marker_bottom_right = []
+# id_marker = 0
+# vision_id = 0
+# camera_center = []
+# marker_center = []
+# marker_top_right = []
+# marker_top_left = []
+# marker_bottom_left = []
+# marker_bottom_right = []
 
-class RobotControllerServer(object):
+class RobotCtrl_base(object):
     """
-    Action server controller for
-     - looking for a target marker id
-     - moving close to it
+    Base class for Robot Controller. It provides:
+     - common members,
+     - publisher on /cmd_vel to control the robot,
+     - subscriber callback to get data from the camera
     """
+
     def __init__(self):
-        # create feedback message
-        self._feedback = a1_msgs.RobotControllerFeedback()
-        # create result message
-        self._result = a1_msgs.RobotControllerResult()
-        
+
         # target marker id
         self._target_id = None
-        
-        # keep on getting close till the target marker side size
-        # is lower than the threshold
-        self._marker_side_th = None
-        # tollerance error on marker side
-        self._marker_side_tollerance = 1
 
-        # camera data
-        self._camera_info = RobotVision()
-        
-        # subscriber to camera topic
-        self._vision_sub = rospy.Subscriber(
-                                'info_vision',
-                                RobotVision,
-                                self.vision_callback
-                            )
-        
         # get process rate
         self._rate = rospy.get_param("process_rate")
 
+        # subscriber for gettinc camera info
+        self._vision_sub = None
+
+        # timout [s] for the first camera update
+        self._camera_timeout = 1
+
+        # camera data
+        self._camera_info = RobotVision()
+
         # publisher of the velocity reference control to the robot
         self._ctr_cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 10)
+
+        
+    def vision_callback(self, vision_msg: RobotVision):
+        """
+        Stores the camera data from the camera topic /info_vision
+
+        :param vision_msg: camera data
+        :type vision_msg: RobotVision
+
+        :return: None
+        """
+
+        # filter out all messages not related to the target marker
+        if(vision_msg.id == self._target_id):
+            self._camera_info = vision_msg
+
+
+class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
+    """
+    Action server controller for searching a target marker id
+    """
+    def __init__(self):
+
+        # initialize parent class
+        super().__init__()
+
+        # create feedback message
+        self._feedback = a1_msgs.RobotCtrl_searchFeedback()
+        
+        # create result message
+        self._result = a1_msgs.RobotCtrl_searchResult()
         
         # create action server
         self._act_server = actionlib.SimpleActionServer(
-                                "robotController",
-                                a1_msgs.RobotControllerAction,
+                                "robotCtrl_search",
+                                a1_msgs.RobotCtrl_searchAction,
                                 execute_cb=self.act_server_callback,
                                 auto_start=False
                             )
@@ -64,39 +86,46 @@ class RobotControllerServer(object):
         # start action server
         self._act_server.start()
 
-    def act_server_callback(self, goal: a1_msgs.RobotControllerGoal):
+    def act_server_callback(self, goal: a1_msgs.RobotCtrl_searchGoal):
         """
-        Handles the goal requests
-         - case of search, it looks for the target marker id
-         - case of get close, it navigates toward the target marker
+        Handles the goal requests to look for a target marker id
 
         :param: goal: goal request from the client
-        :type goal: assignment.msg.RobotControllerGoal
+        :type goal: assignment.msg.RobotCtrl_searchGoal
 
-        :retur: None
+        :return: None
         """
 
-        if goal.action == ControlAction.SEARCH_ID:
-            # get target marker id to look for
-            self._target_id = goal.id
-            success = self.search_marker(self._target_id)
-            self._act_server.set_succeeded(result = a1_msgs.RobotControllerResult(success))
+        # subscriber to camera topic
+        self._vision_sub = rospy.Subscriber(
+                                'info_vision',
+                                RobotVision,
+                                self.vision_callback
+                            )
 
-        elif goal.action == ControlAction.GET_CLOSE:
-            self._marker_side_th = goal.marker_side_th
-            # rospy.loginfo("get command get close - self._target_id: %d" % self._target_id)
-            success = self.get_close_to_marker(self._marker_side_th)
-            self._act_server.set_succeeded(result = a1_msgs.RobotControllerResult(success))
+        # get target marker id to look for
+        self._target_id = goal.id
+        
+        try:
+            # wait for the first update from the camera to come
+            self._camera_info = rospy.wait_for_message('info_vision',RobotVision, timeout=self._camera_timeout)
+        
+        except (rospy.ROSException, rospy.ROSInterruptException) as e:
+            rospy.loginfo(e)
+            return False
+        
+        success = self.search_markerId(self._target_id)
+        self._act_server.set_succeeded(result = a1_msgs.RobotCtrl_searchResult(success))
         
 
-    def search_marker(self, id: int):
+    def search_markerId(self, id: int):
         """
         Looks for the target marker id rotating the robot
 
         :param: id: id of the target marker to look for
         :type id: int
 
-        :return: None
+        :return: Bool: True if it finds the requested target marker id, False otherwise
         """
 
         r = rospy.Rate(self._rate)
@@ -115,7 +144,7 @@ class RobotControllerServer(object):
 
             # check that the goal has not been requested to be cleared
             if self._act_server.is_preempt_requested():
-                rospy.loginfo("control_act_server - Searching goal premented")
+                rospy.loginfo("control_act_server search - Searching goal premented")
                 # preempt current goal
                 self._act_server.set_preempted()
                 return False
@@ -134,22 +163,94 @@ class RobotControllerServer(object):
         # stop looking for target marker id
         velocity.angular.z = 0
         self._ctr_cmd_vel_pub.publish(velocity)
-                
+
+        # subscription not needed anymore. Remove it
+        self._vision_sub.unregister()
+        
         return True
 
-    def get_close_to_marker(self, marker_side_th: float):
+
+class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
+    """
+    Action Server controller for reaching the target marker
+    within a threshold
+    """
+    def __init__(self):
+        
+        # initialize parent class
+        super().__init__()
+
+        # keep on getting close till the target marker side size
+        # is lower than the threshold
+        self._marker_side_th = None
+        # tollerance error on marker side
+        self._marker_side_tollerance = 1
+
+        # create feedback message
+        self._feedback = a1_msgs.RobotCtrl_reachFeedback()
+        
+        # create result message
+        self._result = a1_msgs.RobotCtrl_reachResult()
+        
+        # create action server
+        self._act_server = actionlib.SimpleActionServer(
+                                "robotCtrl_reach",
+                                a1_msgs.RobotCtrl_reachAction,
+                                execute_cb=self.act_server_callback,
+                                auto_start=False
+                            )
+        
+        # start action server
+        self._act_server.start()
+
+    def act_server_callback(self, goal: a1_msgs.RobotCtrl_reachGoal):
+        """
+        Handles the goal requests to reach a target marker id
+
+        :param: goal: goal request from the client
+        :type goal: assignment.msg.RobotCtrl_reachGoal
+
+        :return: None
+        """
+    
+        # subscriber to camera topic
+        self._vision_sub = rospy.Subscriber(
+                                'info_vision',
+                                RobotVision,
+                                self.vision_callback
+                            )
+
+        # set target marker id used to filter out the image from the camera
+        self._target_id = goal.id
+        self._marker_side_th = goal.marker_side_th
+
+        try:
+            # wait for the first update from the camera to come
+            self._camera_info = rospy.wait_for_message('info_vision',RobotVision, timeout=self._camera_timeout)
+        
+        except (rospy.ROSException, rospy.ROSInterruptException) as e:
+            rospy.loginfo(e)
+            return False
+
+        success = self.reach_marker_id(self._marker_side_th)
+        self._act_server.set_succeeded(result = a1_msgs.RobotCtrl_reachResult(success))
+        
+    
+    def reach_marker_id(self, marker_side_th: float):
         """
         Gets close to the target marker up to a threshold.
-        It keeps the target marker in the middel of the camera vision
+        It keeps the target marker in the middle of the camera vision
 
         :param marker_side_th: threshold to stop the approach to the target marker
         :type marker_side_th: float
 
-        :return: Bool: True, if the goal is succeeded; False if the goal fails
+        :return: Bool: True if marker reached within the threshold, False otherwise
         """
-        
+        # check that camera info marker coordinates are not empty
         # control rate
         r = rospy.Rate(self._rate)
+
+        marker_side = 0
 
         # proportional gains
         linear_gain = 0.003
@@ -161,9 +262,9 @@ class RobotControllerServer(object):
         # check just vertical side
         x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
         y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
-            
+
         marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
-        
+    
         # send feedback on the current marker size
         self._feedback.marker_side = marker_side
         self._act_server.publish_feedback(self._feedback)
@@ -172,7 +273,7 @@ class RobotControllerServer(object):
 
             # check that the goal has not been requested to be cleared
             if self._act_server.is_preempt_requested():
-                rospy.loginfo("contro_act_server - Getting close to target marker preempted")
+                rospy.loginfo("control_act_server reach - Getting close to target marker preempted")
                 # preempt current goal
                 self._act_server.set_preempted()
                 return False
@@ -183,7 +284,7 @@ class RobotControllerServer(object):
             # consider just vertical side, since horizontal one could be seen sideways, thus,
             # in some case, could never reach the threshold
             marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
-            
+        
             # send feedback on the current marker size
             self._feedback.marker_side = marker_side
             self._act_server.publish_feedback(self._feedback)
@@ -207,43 +308,26 @@ class RobotControllerServer(object):
         velocity.angular.z = 0
         self._ctr_cmd_vel_pub.publish(velocity)
 
+        # subscription not needed anymore. Remove it
+        self._vision_sub.unregister()
+
         return True
 
-
-    def vision_callback(self, vision_msg: RobotVision):
-        """
-        Stores the camera data from the camera topic /invo_vision
-
-        :param vision_msg: camera data
-        :type vision_msg: RobotVision
-
-        :return: None
-        """
-
-        # filter out all messages not related to the target marker
-        if(vision_msg.id == self._target_id):
-            # rospy.loginfo("camera id == target id")
-            self._camera_info.id = vision_msg.id
-            self._camera_info.camera_center = vision_msg.camera_center
-            self._camera_info.marker_center = vision_msg.marker_center
-            self._camera_info.marker_top_right = vision_msg.marker_top_right
-            self._camera_info.marker_top_left = vision_msg.marker_top_left
-            self._camera_info.marker_bottom_left = vision_msg.marker_bottom_left
-            self._camera_info.marker_bottom_right = vision_msg.marker_bottom_right
 
 
 def main():
     """
     Main function of the node
       - initialize the node
-      - creates action server object for ``robotController``
-      - creates subscriber for topic ``/info_vision`` for getting camera data
+      - creates action server object for ``robotCtrl_search``
+      - creates action server object for ``robotCtrl_reach``
 
     :return: None
     """
     rospy.init_node("robot_controller_action_server")
         
-    ctr_act_server = RobotControllerServer()
+    ctr_act_server_searchMarkerId = RobotCtrlServer_searchMarkerId()
+    ctr_act_server_reachMarkerId = RobotCtrlServer_reachMarkerId()
 
     rospy.loginfo("robot_controller_action_server initialized")
 
@@ -251,5 +335,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # waiting time for GUI to load
+    rospy.sleep(7)
+
     main()
 

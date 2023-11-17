@@ -1,5 +1,4 @@
 # goal definition
-int8 action
 int8 id
 float32 marker_side_th
 ---
