@@ -1,5 +1,5 @@
 # goal definition
-int8 id
+int32 id
 float32 marker_side_th
 ---
 # result
@@ -7,5 +7,5 @@ bool success
 ---
 # feedback
 # current id seen by the camera
-int8 id
+int32 id
 float32 marker_side

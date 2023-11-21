@@ -63,7 +63,6 @@ def reach_marker_done_cb(goalStatus: GoalStatus, result: a1_msgs.RobotCtrl_reach
         rospy.loginfo("Something went wrong while getting close to the target marker")
         state = LogicState.FINISH
 
-
 def terminate_node():
     """
     Sends the shutdown signal to the node
@@ -157,6 +156,15 @@ def start(ids: list):
         except rospy.exceptions.ROSInterruptException as e:
             print(e)
 
+def search_feedback_callback(feedback: a1_msgs.RobotCtrl_searchFeedback):
+    
+    rospy.loginfo("search feedback - marker id seen: " + str(feedback.feedback.ids))
+
+def reach_feedback_callback(feedback: a1_msgs.RobotCtrl_reachFeedback):
+    
+    rospy.loginfo("reach feedback - target marker id: %d" % feedback.feedback.id)
+    rospy.loginfo("reach feedback - target marker side: %.1f" % feedback.feedback.marker_side)
+
 
 def main():
     """
@@ -193,10 +201,23 @@ def main():
 
     # wait for the search controller server to be started
     ctrl_client_search.wait_for_server()
+    rospy.loginfo("action server 'robotCtrl_search' found")
+    
     # wait for the reach controller server to be started
     ctrl_client_reach.wait_for_server()
+    rospy.loginfo("action server 'robotCtrl_reach' found")
 
-    rospy.loginfo("action server 'robotController' found")
+    ctrl_search_feedback_sub = rospy.Subscriber(
+                                                "/robotCtrl_search/feedback",
+                                                a1_msgs.RobotCtrl_searchFeedback,
+                                                search_feedback_callback
+                                            )
+    
+    ctrl_reach_feedback_sub = rospy.Subscriber(
+                                                "/robotCtrl_reach/feedback",
+                                                a1_msgs.RobotCtrl_reachFeedback,
+                                                reach_feedback_callback
+                                            )
 
     # ordered list of marker ids to look for
     ids = [11, 12, 13, 15]

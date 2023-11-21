@@ -22,12 +22,12 @@
   
   
   <arg name="rate" default="20"/>
-  <arg name="rate_vis" value="100"/>
+  <arg name="rate_vis" default="20"/>
   
   <param name="process_rate" value="$(arg rate)"/>
   <param name="vision_rate" value="$(arg rate_vis)"/>
   
   <node name="robot_vision" pkg="assignment_1" type="robot_vision.py" output="screen"/>
   <node name="robot_control" pkg="assignment_1" type="control_act_server.py" output="screen" />
-  <node name="robot_logic" pkg="assignment_1" type="logic.py" output="screen" required="true"/>
+  <node name="robot_logic" pkg="assignment_1" type="logic.py"  required="true" output="screen" launch-prefix="xterm -e"/>
 </launch>

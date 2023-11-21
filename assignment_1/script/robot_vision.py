@@ -5,6 +5,7 @@ from cv_bridge import CvBridge
 from cv2 import aruco
 from sensor_msgs.msg import Image, CameraInfo
 from assignment_1.msg import RobotVision
+import numpy as np
 
 cam_center_x = 0
 cam_center_y = 0
@@ -40,32 +41,27 @@ def img_cb(img_msg):
     
     corners, ids, _ = aruco.detectMarkers(image, aruco_dict, parameters=parameters)
 
-    if ids is not None:
+    info_msg.ids = [] if not np.array(ids).tolist() else [ids[0][0]]
     
-        marker_center_x = (corners[0][0][0][0]+ corners[0][0][1][0]+ corners[0][0][2][0]+ corners[0][0][3][0]) / 4
-        marker_center_y = (corners[0][0][0][1]+ corners[0][0][1][1]+ corners[0][0][2][1]+ corners[0][0][3][1]) / 4
-        
-        camera_center = [cam_center_x, cam_center_y]
-        marker_center = [marker_center_x, marker_center_y]
-        
-        top_right = [corners[0][0][0][0], corners[0][0][0][1]]
-        top_left = [corners[0][0][1][0], corners[0][0][1][1]]
-        bottom_left = [corners[0][0][2][0], corners[0][0][2][1]]
-        bottom_right = [corners[0][0][3][0], corners[0][0][3][1]]
-        
-        info_msg.id = ids[0][0]
-        info_msg.camera_center = camera_center
-        info_msg.marker_center = marker_center
-        info_msg.marker_top_right = top_right
-        info_msg.marker_top_left = top_left
-        info_msg.marker_bottom_left = bottom_left
-        info_msg.marker_bottom_right = bottom_right
+    if ids is not None:
+        marker_center_x = (corners[0][0][0][0] + corners[0][0][1][0] + corners[0][0][2][0] + corners[0][0][3][0]) / 4
+        marker_center_y = (corners[0][0][0][1] + corners[0][0][1][1] + corners[0][0][2][1] + corners[0][0][3][1]) / 4
+                
+        info_msg.camera_center = [cam_center_x, cam_center_y]
+        info_msg.marker_center = [marker_center_x, marker_center_y]
+        info_msg.marker_top_right = [corners[0][0][0][0], corners[0][0][0][1]]
+        info_msg.marker_top_left = [corners[0][0][1][0], corners[0][0][1][1]]
+        info_msg.marker_bottom_left = [corners[0][0][2][0], corners[0][0][2][1]]
+        info_msg.marker_bottom_right = [corners[0][0][3][0], corners[0][0][3][1]]
 
 def main():
     """
     Subscribes to camera topics
      - image_raw
      - camera_info
+    Publishes the topic /info_vision containing
+     - marker id,
+     - coordinates in pixels of the camera center, marker center, 4 marker corners
     """
 
     vision_rate = rospy.get_param("vision_rate")

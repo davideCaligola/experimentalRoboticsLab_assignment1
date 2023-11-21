@@ -28,7 +28,7 @@ class RobotCtrl_base(object):
         self._vision_sub = None
 
         # timout [s] for the first camera update
-        self._camera_timeout = 1
+        self._camera_timeout = 2.0
 
         # camera data
         self._camera_info = RobotVision()
@@ -48,7 +48,8 @@ class RobotCtrl_base(object):
         """
 
         # filter out all messages not related to the target marker
-        if(vision_msg.id == self._target_id):
+        self._camera_info.ids = vision_msg.ids
+        if( vision_msg.ids and vision_msg.ids[0] == self._target_id):
             self._camera_info = vision_msg
 
 
@@ -109,6 +110,9 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
         success = self.search_markerId(self._target_id)
         self._act_server.set_succeeded(result = a1_msgs.RobotCtrl_searchResult(success))
         
+        # subscription not needed anymore. Remove it
+        self._vision_sub.unregister()
+
 
     def search_markerId(self, id: int):
         """
@@ -129,22 +133,27 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
 
         # send velocity command
         self._ctr_cmd_vel_pub.publish(velocity)
-        
-        while(id != self._camera_info.id):
 
-            rospy.loginfo("control - looking for marker id: %d" % id)
+        while(not self._camera_info.ids or id != self._camera_info.ids[0]):
+
+            # rospy.loginfo("control - looking for marker id: %d" % id)
 
             # check that the goal has not been requested to be cleared
             if self._act_server.is_preempt_requested():
-                rospy.loginfo("control_act_server search - Searching goal premented")
+                rospy.loginfo("control_act_server search - Searching goal preempted")
+
+                # stop looking for target marker id
+                velocity.angular.z = 0
+                self._ctr_cmd_vel_pub.publish(velocity)
+
                 # preempt current goal
                 self._act_server.set_preempted()
                 return False
             
             # send feedback on current id found by the camera
-            if self._camera_info.id != None:
-                self._feedback.id = self._camera_info.id
-                self._act_server.publish_feedback(self._feedback)
+            # if self._camera_info.id != None:
+            self._feedback.ids = self._camera_info.ids
+            self._act_server.publish_feedback(self._feedback)
 
             # keep on looking
             velocity.angular.z = -0.5
@@ -152,12 +161,14 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
 
             r.sleep()
         
+        # send feedback on current id found by the camera
+        # if self._camera_info.id != None:
+        self._feedback.ids = self._camera_info.ids
+        self._act_server.publish_feedback(self._feedback)
+
         # stop looking for target marker id
         velocity.angular.z = 0
         self._ctr_cmd_vel_pub.publish(velocity)
-
-        # subscription not needed anymore. Remove it
-        self._vision_sub.unregister()
         
         return True
 
@@ -256,11 +267,9 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
 
         marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
-    
-        # send feedback on the current marker size
-        self._feedback.marker_side = marker_side
-        self._act_server.publish_feedback(self._feedback)
 
+        self._feedback.id = self._target_id
+    
         while(abs(marker_side - marker_side_th) > self._marker_side_tollerance):
 
             # check that the goal has not been requested to be cleared
@@ -289,8 +298,12 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
                 
             self._ctr_cmd_vel_pub.publish(velocity)
 
-            rospy.loginfo("control - marker side size error: %f" % linear_error)
-            rospy.loginfo("control - camera center error: %f" % angular_error)
+            # send feedback on the current marker size
+            self._feedback.marker_side = marker_side
+            self._act_server.publish_feedback(self._feedback)
+
+            # rospy.loginfo("control - marker side size error: %f" % linear_error)
+            # rospy.loginfo("control - camera center error: %f" % angular_error)
 
             # cycle timing
             r.sleep()
@@ -327,8 +340,5 @@ def main():
 
 
 if __name__ == "__main__":
-    # waiting time for GUI to load
-    rospy.sleep(7)
-
     main()
 
