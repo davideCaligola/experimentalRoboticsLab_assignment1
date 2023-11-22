@@ -92,11 +92,9 @@ The rate the vision node publishes the information collected from the camera can
 roslaunch assignment_1 assignment_1.launch rate_vis:=20
 ```  
 An example of simulation run is shown in the following video.
-<center>
-    <video width="640" height="" controls>
-        <source src="./assets/rosbot_sim.mp4" type="video/mp4">
-    </video>
-</center>
+
+https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/114524396/aebe5e4d-8c73-4959-a221-9eb78a624309
+
 
 # Architecture
 To manage the rosbot in a flexible way, an architecture based on an action server has been developed in the following three nodes.  
