@@ -25,9 +25,7 @@ Implement the assignment both in simulation (the world file aruco_assignment.wor
 In simulation, differently than with the real robot, do the "search" task only by rotating the camera, without rotating the whole robot.  
 The requirements have been fulfilled as follows:
 - branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server)  
-implements the code for the simulation of the real rosbot  
-- branch [action_server_real_rosbot]()  
-implements the code in branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server) to be loaded in the real rosbot  
+implements the code for the simulation of the real rosbot implemented with an architecture based on an action server controller  
 - branch [action_server_rot_camera]()  
 implements the code for the simulation of the rosbot with rotating camera.  
 
