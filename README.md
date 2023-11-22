@@ -1,134 +1,176 @@
-# rosbot_ros #
+In this document the following arguments will be presented:
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Use](#use)
+- [architecture](#architecture)
+    - [logic.py](#logicpy)
+    - [control_action_server.py](#control_act_serverpy)
+    - [robot_vision.py](#robot_visionpy)
+    - [Nodes graph](#nodes-graph)
+- [Improvements](#improvements)
 
-ROS packages for ROSbot 2.0 and ROSbot 2.0 Pro.
+# Introduction
+In this repository, the [ROS](https://www.ros.org) package `assignment_1` has been implemented to satisfy the requirements of the first assignment of the course [Experimental Robotics Laboratory](https://corsi.unige.it/en/off.f/2023/ins/66551?codcla=10635) of [Robotics Engineering](https://corsi.unige.it/en/corsi/10635) course by [University degli Studi di Genova](https://unige.it).  
+The assignment depends on the [aruco](https://github.com/pal-robotics/aruco_ros/tree/noetic-devel/aruco) package for acquiring and parsing the image from the camera. The robot is a [Husarion ROSbot 2R](https://husarion.com/#robots) and its model is provided by the package [rosbot_description](https://github.com/husarion/rosbot_ros/tree/noetic/src/rosbot_description). Both packages, `aruco` and `rosbot_description`, are included in this repository for convenience.  
+The requirements for the assignment are the following:
+ - The robot starts at coordinates (0,0) in a given environment with 4 markers with IDs 11, 12, 13 and 15.  
+ The markers have the following meaning:  
+    - Marker 11: rotate until you find marker 12; then reach marker 12
+    - Marker 12: rotate until you find marker 12; then reach marker 13  
+    - Marker 13: rotate until you find marker 12; then reach marker 15  
+    - Marker 15: done!  
 
-Demonstrations of **docker-compose** configurations are shown in [rosbot-docker](https://github.com/husarion/rosbot-docker/tree/ros1/demo) repo.
-It presents how to run an autonomous mapping and navigation demo with ROSbot and Navigation2 stack.
+"reach marker XXX" means that the XXX marker must be at least 200 pixels in the camera frame.  
+Implement the assignment both in simulation (the world file aruco_assignment.world is given) and with the real robot.  
+In simulation, differently than with the real robot, do the "search" task only by rotating the camera, without rotating the whole robot.  
+The requirements have been fulfilled as follows:
+- branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server)  
+implements the code for the simulation of the real rosbot  
+- branch [action_server_real_rosbot]()  
+implements the code in branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server) to be loaded in the real rosbot  
+- branch [action_server_rot_camera]()  
+implements the code for the simulation of the rosbot with rotating camera.  
 
-# Quick start (simulation) #
+> Due to working conditions, the pixel threshold for the marker size within the frame camera has been reduced to 175 pixels.
 
-## Installation ##
+In the following sections, more insights on how to install and use the provided packages and more details on the used architecture are presented.
 
-We assume that you are working on Ubuntu 16.04 and already have installed ROS Kinetic. If not, follow the [ROS install guide](http://wiki.ros.org/kinetic/Installation/Ubuntu)
+# Installation
+Requirements:
+- ROS Noetic environment is already installed and working properly,
+- Git version control system properly installed,
+- a proper Github SSH key setup (see [Adding a new SSH key to your GitHub account](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account) for more information about it)  
 
-Prepare the repository:
-```bash
-cd ~
-mkdir ros_workspace
-mkdir ros_workspace/src
-cd ~/ros_workspace/src
-catkin_init_workspace
-cd ~/ros_workspace
+The software has been tested in a machine with Linux Ubuntu 20.04 LTS.  
+The package `assignment_1` makes use of the terminal [xterm](https://invisible-island.net/xterm/) to provide information via a separated console.  
+In Ubuntu, it is possible to install it using the apt command:  
+```shell
+sudo apt update && sudo apt -y install xterm
+```
+To use the packages in this repository, create a directory where a catkin workspace will be created for running the packages:
+```
+mkdir test_ws
+```
+Clone the repository in the test_ws/src folder:
+```
+git clone -b action_server --single-branch git@github.com:davideCaligola/experimentalRoboticsLab_assignment1.git test_ws/src
+```
+Navigate into the workspace folder and build the packages
+```
+cd test_ws
 catkin_make
 ```
-
-Above commands should execute without any warnings or errors.
-
-Clone this repository to your workspace:
-
-```bash
-cd ~/ros_workspace/src
-git clone https://github.com/husarion/rosbot_ros.git -b noetic
+Setup the current workspace
 ```
-
-Install dependencies:
-
-```bash
-cd ~/ros_workspace
-rosdep install --from-paths src --ignore-src -r -y
+source ./devel/setup.bash
 ```
-
-Build the workspace:
-
-```bash
-cd ~/ros_workspace
-catkin_make
+Copy the marker models in the local directory `.gazebo`, otherwise the marker will not be visible in the Gazebo environment.
 ```
-
-From this moment you can use rosbot simulations. Please remember that each time, when you open new terminal window, you will need to load system variables:
-
-```bash
-source ~/ros_workspace/devel/setup.sh
+mkdir -p ~/.gazebo
+cp -r ./src/assignment_1/aruco_models/* ~/.gazebo
 ```
-
-## Creating, saving and loading the Map with Gazebo ##
-
-Run the following commands below. Use the teleop to move the robot around to create an accurate and thorough map.
-
-In Terminal 1, launch the Gazebo simulation:
-
-```bash
-roslaunch rosbot_description rosbot_rviz_gmapping.launch
+Launch the simulation
 ```
-
-In Terminal 2, start teleop and drive the ROSbot, observe in Rviz as the map is created:
-
-```bash
-roslaunch rosbot_navigation rosbot_teleop.launch
+roslaunch assignment_1 assignment_1.launch
 ```
+See section [Use](#use) for the available launch parameters.  
 
-When you are satisfied with created map, you can save it. Open new terminal and save the map to some given path: 
-
-```bash
-rosrun map_server map_saver -f ~/ros_workspace/src/rosbot_ros/src/rosbot_navigation/maps/test_map
+# Use
+The simulation can be started with the provided launch file:
 ```
-
-Now to make saved map loading possible you have to close all previous terminals and run the following commands below. Once loaded, use rviz to set 2D Nav Goal and the robot will autonomously reach the indicated position
-
-In Terminal 1, launch the Gazebo simulation
-
-```bash
-roslaunch rosbot_description rosbot_rviz_amcl.launch
+roslaunch assignment_1 assignment_1.launch
 ```
+The Gazebo and RViz environments open showing the rosbot within the provided world with the markers.  
+The rosbot will turn to look for the searched marker and once found it, it moves close to it. It repeats the process for all the markers in the world.  
+Once the rosbot reaches the last marker, the process terminates and closes all the started processes.  
+The cycle rate of the logic and its controller can be set with the parameter `rate` in the `assignment_1.launch` file or from command line:
+```
+roslaunch assignment_1 assignment_1.launch rate:=20
+```
+The rate the vision node publishes the information collected from the camera can be set with the parameter `rate_vis` in the `assignment_1.launch` file or from command line:
+```
+roslaunch assignment_1 assignment_1.launch rate_vis:=20
+```  
+An example of simulation run is shown in the following video.
+<center>
+    <video width="640" height="" controls>
+        <source src="./assets/rosbot_sim.mp4" type="video/mp4">
+    </video>
+</center>
 
->**Tip:**
->
->If you have any problems with laser scan it probably means that you don't have a dedicated graphic card (or lack appropriate drivers). If that's the case then you'll have to change couple of things in `/rosbot_description/urdf/rosbot_gazebo` file: <br><br>
->Find:   `<!-- If you cant't use your GPU comment RpLidar using GPU and uncomment RpLidar using CPU gazebo plugin. -->`
-next coment RpLidar using GPU using `<!-- -->` from `<gazebo>` to `</gazebo>` like below:
-> ```xml
-> <!-- gazebo reference="rplidar">
->   <sensor type="gpu_ray" name="head_rplidar_sensor">
->     <pose>0 0 0 0 0 0</pose>
->     <visualize>false</visualize>
->     <update_rate>40</update_rate>
->     <ray>
->       <scan>
->         <horizontal>
->           <samples>720</samples>
->           <resolution>1</resolution>
->           <min_angle>-3.14159265</min_angle>
->           <max_angle>3.14159265</max_angle>
->         </horizontal>
->       </scan>
->       <range>
->         <min>0.2</min>
->         <max>30.0</max>
->         <resolution>0.01</resolution>
->       </range>
->       <noise>
->         <type>gaussian</type>
->         <mean>0.0</mean>
->         <stddev>0.01</stddev>
->       </noise>
->     </ray>
->     <plugin name="gazebo_ros_head_rplidar_controller" 
->filename="libgazebo_ros_gpu_laser.so">
->      <topicName>/rosbot/laser/scan</topicName>
->       <frameName>rplidar</frameName>
->     </plugin>
->   </sensor>
-> </gazebo -->
->```
->
->Now uncomment RpLidar using CPU plugin removing `<!-- -->`.
->
->If you want to make your laser scan visible just change:
->```xml
-><visualize>false</visualize>
->```
->to:
->```xml
-><visualize>true</visualize>
->```
->in the same plug in.
+# Architecture
+To manage the rosbot in a flexible way, an architecture based on an action server has been developed in the following three nodes.  
+## logic.py
+It coordinates the action the rosbot needs to achieve sending goals to the action server implemented in the controller:  
+ - defines the list of marker ids to look for  
+ - sends to the action server `robotCtrl_search` the goal with the marker id to look for  
+ - sends to the action server `robotCtrl_reach` the goal with the marker id to reach and the threshold size of the marker side seen in the camera frame.  
+ - quits the simulation.  
+
+It implements a simple state machine to control the actions of the rosbot, as represented in the following state machine:
+<style>
+    p.centered {
+        text-align: center
+    }
+</style>
+<p class="centered">
+    <img src="./assets/logic_stateMachine.png" alt="logic.py state machine"/>
+</p>
+<p class="centered">logic.py node state machine</p>
+
+## control_act_server.py  
+It subscribes to the topic `/info_vision` to receive information about  
+- marker id
+- marker 4 corners position within the camera frame
+- marker and camera center position within the camera frame  
+
+It implements two action servers:  
+- `robotCtrl_search`
+    - it receives as goal the marker id to look for
+    - it provides as feedback the current seen id
+    - it returns as result `True`, if the marker is found; `False` if the goal is preempted
+
+To look for the target marker id, the ode sends on the topic `/cmd_vel` an angular velocity command along the z-axis to rotates the robot on itself.  
+
+- `robotCtrl_reach`
+    - it receives as goal the marker id to reach and the size threshold the marker must have within the camera size  
+    - it provides as feedback, the current marker id and marker size seen by teh camera  
+    - it returns as result `True`, if the marker size in the camera frame reaches the goal marker size threshold; `False` if the goal is preempted.  
+
+To reach the target marker, the controller publishes two control velocity on the topic `/cmd_vel`:
+- linear velocity along x-axis to get close to the target marker. The amplitude is proportional to the error between the marker side threshold and the size of the marker size in the current camera frame  
+- angular velocity along z-axis to keep the middle of the marker aligned with the center of the camera. The command is proportional to the distance between the two centers.  
+
+The reach control is considered successful when the size of marker side seen in the camera is not less than the specified threshold.  
+
+## robot_vision.py  
+It subscribes to the following camera topics:
+- `/camera/color/camera_info`
+    to calculate the position of the camera center  
+- `/camera/color/image_raw`  
+    to extract information about the marker in view  
+
+It publishes the topic `/info_vision`, which provides data about the current seen marker id and the four corners of the marker.
+
+## Nodes graph
+the relationship among the nodes in the packages is shown in the following `rqt_graph`:
+
+<style>
+    p.centered {
+        text-align: center
+    }
+</style>
+<p class="centered">
+    <img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>
+</p>
+<p class="centered">rqt_graph of the rosbot simulation</p>
+
+# Improvements
+The package can be improve considering the following points:
+- there is not any error handling,
+- the vision system handles only one marker per time. If more than a marker is in the camera view, only the first one in the list provided by the camera is considered,
+- if the camera does not find the searched marker id, the rosbot keeps on turning on itself looking for the marker id indefinitely. It could be implemented a timeout.
+- there is not any obstacle avoidance. If, by any chance, the control is not able to reach the threshold for the marker size in the camera frame, it will crash against the marker,
+- if, while reaching the target marker id, the marker is no longer within the vision of the camera, the behaviour of the robot could be unexpected,
+- the control is a simple proportional controller tuned heuristically. A better controller could be designed,  
+- currently, once the rosbot reaches the last marker, the `logic.py` node terminates. Since it is required, its termination triggers all other processes to terminate as well. A more graceful shut down procedure could be devised.
