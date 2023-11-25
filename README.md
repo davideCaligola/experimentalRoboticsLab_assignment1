@@ -126,7 +126,7 @@ To reach the target marker, the controller publishes two control velocities as t
 
 The implemented control law is represented in the following schema:  
 <img src="./assets/control_schema.png" alt="control_act_server.py control schema"/>  
-*`logic.py` node state machine*
+*`control_act_server.py` control schema*
 
 The reach control is considered successful when the size of marker side seen in the camera is not less than the specified threshold.  
 
