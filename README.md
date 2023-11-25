@@ -2,10 +2,10 @@ In this document the following arguments will be presented:
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Use](#use)
-- [architecture](#architecture)
-    - [logic.py](#logicpy)
-    - [control_action_server.py](#control_act_serverpy)
-    - [robot_vision.py](#robot_visionpy)
+- [Architecture](#architecture)
+    - [logic.py](#logicpy-source)
+    - [control_action_server.py](#control_act_serverpy-source)
+    - [robot_vision.py](#robot_visionpy-source)
 - [Improvements](#improvements)
 
 # Introduction
@@ -80,21 +80,13 @@ https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/114
 
 # Architecture
 To manage the rosbot in a flexible way, an architecture based on an action server has been developed and three nodes have been developed:
-- [logic.py](#logicpy)
-- [contro_act_server.py](#control_act_serverpy)
-- [robot_vision.py](#robot_visionpy)  
+- [logic.py](#logicpy-source)
+- [contro_act_server.py](#control_act_serverpy-source)
+- [robot_vision.py](#robot_visionpy-source)  
 
-The developed nodes and the Gazebo and RViz environment are organized as shown in the following `rqt_graph`:
-
-<style>
-    p.centered {
-        text-align: center
-    }
-</style>
-<p class="centered">
-    <img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>
-</p>
-<p class="centered">rqt_graph of the rosbot simulation</p>
+The developed nodes and the Gazebo and RViz environment are organized as shown in the following `rqt_graph`:  
+<img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>  
+*`rqt_graph` of the rosbot simulation*
 
 The following sections describes in more details each developed node.
 
@@ -105,16 +97,9 @@ It coordinates the action the rosbot needs to achieve sending goals to the actio
  - sends to the action server `/robotCtrl_reach` the goal with the marker id to reach and the threshold size of the marker side seen in the camera frame.  
  - quits the simulation.  
 
-It implements a simple state machine to control the actions of the rosbot, as represented in the following state machine:
-<style>
-    p.centered {
-        text-align: center
-    }
-</style>
-<p class="centered">
-    <img src="./assets/logic_stateMachine.png" alt="logic.py state machine"/>
-</p>
-<p class="centered">logic.py node state machine</p>
+It implements a simple state machine to control the actions of the rosbot, as represented in the following state machine:  
+<img src="./assets/logic_stateMachine.png" alt="logic.py state machine"/>  
+*`logic.py` node state machine*
 
 ## control_act_server.py ([source](./assignment_1/script/control_act_server.py))  
 It subscribes to the topic `/info_vision` to receive information about  
@@ -139,16 +124,9 @@ To reach the target marker, the controller publishes two control velocities as t
 - linear velocity along x-axis to get close to the target marker. The amplitude is proportional to the error between the marker side threshold and the size of the marker side in the current camera frame  
 - angular velocity along z-axis to keep the middle of the marker aligned with the center of the camera. The command is proportional to the distance between the two centers.  
 
-The implemented control law is represented in the following schema:
-<style>
-    p.centered {
-        text-align: center
-    }
-</style>
-<p class="centered">
-    <img src="./assets/control_schema.png" alt="control_act_server.py control schema"/>
-</p>
-<p class="centered">logic.py node state machine</p>
+The implemented control law is represented in the following schema:  
+<img src="./assets/control_schema.png" alt="control_act_server.py control schema"/>  
+*`logic.py` node state machine*
 
 The reach control is considered successful when the size of marker side seen in the camera is not less than the specified threshold.  
 
@@ -159,7 +137,7 @@ It subscribes to the following camera topics:
 - `/camera/color/image_raw`  
     to extract information about the marker in view  
 
-It publishes the topic `/info_vision`, which provides data about the current seen marker id and the four corners of the marker.
+It publishes the topic `/info_vision`, which provides data about the current seen marker id and the four corners of the marker.  
 
 ```
 int32[] ids
@@ -170,12 +148,7 @@ float32[] marker_top_left
 float32[] marker_bottom_left
 float32[] marker_bottom_right
 ```
-<style>
-    p.centered {
-        text-align: center
-    }
-</style>
-<p class="centered"><kbd>/info_vision</kbd> topic</p>
+*`/info_vision` topic*
 
 # Improvements
 The package can be improve considering the following points:
