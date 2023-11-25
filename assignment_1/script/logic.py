@@ -1,11 +1,10 @@
 #! /usr/bin/env python
 
-from matplotlib.scale import LogisticTransform
 import rospy
 import actionlib
 from actionlib_msgs.msg import GoalStatus
 import assignment_1.msg as a1_msgs
-from assignment_1.msg import LogicState, ControlAction
+from assignment_1.msg import LogicState
 
 ctr_goal_status_sub = None  # subscriber to get controller goal status
 ctrl_client_search = None   # client of control action server for searching a marker id
@@ -69,6 +68,7 @@ def terminate_node():
 
     :return: None
     """
+    
     rospy.signal_shutdown("\nShutting down node on user request...")
 
 
@@ -97,7 +97,7 @@ def start(ids: list):
         state = LogicState.FINISH
 
     while(not rospy.is_shutdown()):
-
+        
         # select target marker id and send request
         # to search for such a marker id
         if state == LogicState.SEND_SEARCH_ID:
@@ -128,6 +128,7 @@ def start(ids: list):
 
         # send request to get close to target marker
         elif state == LogicState.SEND_REACH_ID:
+
             # create goal for getting close to target marker
             ctr_goal_reach = a1_msgs.RobotCtrl_reachGoal(
                             id = current_marker_id,
@@ -156,11 +157,30 @@ def start(ids: list):
         except rospy.exceptions.ROSInterruptException as e:
             print(e)
 
+
 def search_feedback_callback(feedback: a1_msgs.RobotCtrl_searchFeedback):
+    """
+    Prints the feedback of current marker id seen by the camera
+
+    :param: feedback:  message containing the marker id currently seen by
+                       the camera
+    :type feedback: assignment_.msg.RobotCtrl_searchFeedback
+
+    :return: None
+    """
     
     rospy.loginfo("search feedback - marker id seen: " + str(feedback.feedback.ids))
 
+
 def reach_feedback_callback(feedback: a1_msgs.RobotCtrl_reachFeedback):
+    """
+    Prints the feedback of current marker id and marker side
+
+    :param: feedback: message containing the marker id and marker side size
+    :type feedback: assignment_1.msg.RobotCtrl_reachFeedback
+    
+    :return: None
+    """
     
     rospy.loginfo("reach feedback - target marker id: %d" % feedback.feedback.id)
     rospy.loginfo("reach feedback - target marker side: %.1f" % feedback.feedback.marker_side)
@@ -207,12 +227,14 @@ def main():
     ctrl_client_reach.wait_for_server()
     rospy.loginfo("action server 'robotCtrl_reach' found")
 
+    # subscriber to the feedback of the search action server
     ctrl_search_feedback_sub = rospy.Subscriber(
                                                 "/robotCtrl_search/feedback",
                                                 a1_msgs.RobotCtrl_searchFeedback,
                                                 search_feedback_callback
                                             )
     
+    # subscriber to the feedback of the reach action server
     ctrl_reach_feedback_sub = rospy.Subscriber(
                                                 "/robotCtrl_reach/feedback",
                                                 a1_msgs.RobotCtrl_reachFeedback,

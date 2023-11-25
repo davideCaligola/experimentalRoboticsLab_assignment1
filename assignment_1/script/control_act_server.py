@@ -6,6 +6,8 @@ import math
 import assignment_1.msg as a1_msgs
 from assignment_1.msg import RobotVision
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import JointState
+from std_msgs.msg import Float64
 
 
 class RobotCtrl_base(object):
@@ -24,17 +26,24 @@ class RobotCtrl_base(object):
         # get process rate
         self._rate = rospy.get_param("process_rate")
 
-        # subscriber for gettinc camera info
+        # subscriber for getting camera info
         self._vision_sub = None
 
-        # timout [s] for the first camera update
+        # timeout [s] for the first camera update
         self._camera_timeout = 2.0
+
+        # camera joint name
+        self._camera_joint_name = "astra_joint"
 
         # camera data
         self._camera_info = RobotVision()
 
-        # publisher of the velocity reference control to the robot
-        self._ctr_cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 10)
+        # publisher of the velocity reference control to the camera joint
+        self._ctr_camera_cmd_vel_pub = rospy.Publisher(
+                                            '/robot_camera_joint_vel_ctrl/command',
+                                            Float64,
+                                            queue_size = 10
+                                        )
 
         
     def vision_callback(self, vision_msg: RobotVision):
@@ -61,6 +70,12 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
 
         # initialize parent class
         super().__init__()
+
+        # robot orientation around z-axis
+        self._robot_orientation = 0
+        
+        # camera orientation around z-axis
+        self._camera_orientation = 0
 
         # create feedback message
         self._feedback = a1_msgs.RobotCtrl_searchFeedback()
@@ -127,12 +142,10 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
         r = rospy.Rate(self._rate)
 
         # velocity reference control
-        velocity = Twist()
-        velocity.angular.z = 0
-        velocity.linear.x = 0
+        camera_angular_z = Float64(0.0)
 
         # send velocity command
-        self._ctr_cmd_vel_pub.publish(velocity)
+        self._ctr_camera_cmd_vel_pub.publish(camera_angular_z)
 
         while(not self._camera_info.ids or id != self._camera_info.ids[0]):
 
@@ -143,8 +156,8 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
                 rospy.loginfo("control_act_server search - Searching goal preempted")
 
                 # stop looking for target marker id
-                velocity.angular.z = 0
-                self._ctr_cmd_vel_pub.publish(velocity)
+                camera_angular_z.data = 0
+                self._ctr_camera_cmd_vel_pub.publish(camera_angular_z)
 
                 # preempt current goal
                 self._act_server.set_preempted()
@@ -156,8 +169,8 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
             self._act_server.publish_feedback(self._feedback)
 
             # keep on looking
-            velocity.angular.z = -0.5
-            self._ctr_cmd_vel_pub.publish(velocity)
+            camera_angular_z.data = 0.5
+            self._ctr_camera_cmd_vel_pub.publish(camera_angular_z)
 
             r.sleep()
         
@@ -167,8 +180,8 @@ class RobotCtrlServer_searchMarkerId(RobotCtrl_base):
         self._act_server.publish_feedback(self._feedback)
 
         # stop looking for target marker id
-        velocity.angular.z = 0
-        self._ctr_cmd_vel_pub.publish(velocity)
+        camera_angular_z.data = 0
+        self._ctr_camera_cmd_vel_pub.publish(camera_angular_z)
         
         return True
 
@@ -185,15 +198,23 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
 
         # keep on getting close till the target marker side size
         # is lower than the threshold
-        self._marker_side_th = None
-        # tollerance error on marker side
-        self._marker_side_tollerance = 1
+        self._marker_side_th = None        
+
+        # publisher of the velocity reference control to the robot
+        self._ctr_cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size = 10)
 
         # create feedback message
         self._feedback = a1_msgs.RobotCtrl_reachFeedback()
         
         # create result message
         self._result = a1_msgs.RobotCtrl_reachResult()
+        
+        # subscriber to joint state for camera orientation
+        self._camera_joint_state_sub = rospy.Subscriber(
+                                            '/joint_states',
+                                            JointState,
+                                            self.robot_joint_state_callback
+                                        )
         
         # create action server
         self._act_server = actionlib.SimpleActionServer(
@@ -205,6 +226,22 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         
         # start action server
         self._act_server.start()
+
+
+    def robot_joint_state_callback(self, camera_joint: JointState):
+        """
+        Callback function to acquire the angular camera position with respect
+        to the robot body frame
+
+        :param: camera_joint: states of the camera joint, such as position, velocity, effort
+        :type camera_joint: JointState
+
+        :return: None
+        """
+        self._camera_orientation = camera_joint.position[
+                                        camera_joint.name.index(self._camera_joint_name)
+                                    ]
+
 
     def act_server_callback(self, goal: a1_msgs.RobotCtrl_reachGoal):
         """
@@ -223,6 +260,13 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
                                 self.vision_callback
                             )
 
+        # subscriber to joint state for camera orientation
+        self._camera_joint_state_sub = rospy.Subscriber(
+                                            '/joint_states',
+                                            JointState,
+                                            self.robot_joint_state_callback
+                                        )
+
         # set target marker id used to filter out the image from the camera
         self._target_id = goal.id
         self._marker_side_th = goal.marker_side_th
@@ -239,6 +283,26 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         self._act_server.set_succeeded(result = a1_msgs.RobotCtrl_reachResult(success))
         
     
+    def get_marker_side(self):
+        """
+        Provides the maximum vertical marker side seen from the camera
+
+        :return: float: maximum vertical marker side seen from the camera
+        """
+        x_cord_right = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
+        y_cord_right = self._camera_info.marker_top_right[1] - self._camera_info.marker_bottom_right[1]
+
+        x_cord_left = self._camera_info.marker_top_left[0] - self._camera_info.marker_bottom_left[0]
+        y_cord_left = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
+        
+        # consider just vertical side, since horizontal one could be seen sideways, thus,
+        # in some case, could never reach the threshold
+        marker_side_right = math.sqrt(math.pow(x_cord_right,2) + math.pow(y_cord_right,2))
+        marker_side_left = math.sqrt(math.pow(x_cord_left,2) + math.pow(y_cord_left,2))
+
+        return max(marker_side_right, marker_side_left)
+
+
     def reach_marker_id(self, marker_side_th: float):
         """
         Gets close to the target marker up to a threshold.
@@ -249,28 +313,33 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
 
         :return: Bool: True if marker reached within the threshold, False otherwise
         """
-        # check that camera info marker coordinates are not empty
+        
         # control rate
         r = rospy.Rate(self._rate)
+        # r = rospy.Rate(2)
 
         marker_side = 0
 
-        # proportional gains
-        linear_gain = 0.003
-        angular_gain = 0.003
+        # robot proportional gains
+        robot_linear_gain = 0.003
+        robot_angular_gain = 2
 
-        # velocity reference
-        velocity = Twist()
+        # camera proportional gain
+        camera_angular_gain = 0.003
 
-        # check just vertical side
-        x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
-        y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
+        # robot velocity reference
+        robot_velocity = Twist()
 
-        marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
+        # camera velocity reference
+        camera_velocity_z = Float64(0)
+        body_to_camera_velocity_gain_z = 1
+
+        # get maximum vertical marker side
+        marker_side = self.get_marker_side()
 
         self._feedback.id = self._target_id
     
-        while(abs(marker_side - marker_side_th) > self._marker_side_tollerance):
+        while (marker_side < marker_side_th):
 
             # check that the goal has not been requested to be cleared
             if self._act_server.is_preempt_requested():
@@ -279,45 +348,56 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
                 self._act_server.set_preempted()
                 return False
             
-            x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
-            y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
-            
-            # consider just vertical side, since horizontal one could be seen sideways, thus,
-            # in some case, could never reach the threshold
-            marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
+            # get maximum vertical marker side
+            marker_side = self.get_marker_side()
         
             # send feedback on the current marker size
             self._feedback.marker_side = marker_side
             self._act_server.publish_feedback(self._feedback)
 
-            angular_error = self._camera_info.camera_center[0] - self._camera_info.marker_center[0]
+            # robot errors
             linear_error = marker_side_th - marker_side
-            
-            velocity.linear.x = linear_gain * linear_error
-            velocity.angular.z = angular_gain * angular_error
-                
-            self._ctr_cmd_vel_pub.publish(velocity)
+            robot_angular_error = math.fmod(self._camera_orientation, 2*math.pi)
+
+            # robot velocity commands
+            # if there is an error in the orientation of the robot with respect to the camera position,
+            # the linear velocity is attenuated to give priority to the orientation movement
+            robot_direction = math.cos(robot_angular_error)**3
+            robot_velocity.linear.x = robot_linear_gain * linear_error * robot_direction
+            # robot angular velocity, scaled with respect to the marker side with reference to the marker side threshold
+            robot_velocity.angular.z = robot_angular_gain * robot_angular_error * marker_side / marker_side_th
+
+            # publish robot velocity command
+            self._ctr_cmd_vel_pub.publish(robot_velocity)
+
+            # camera error
+            camera_angular_error = self._camera_info.camera_center[0] - self._camera_info.marker_center[0]
+
+            # camera velocity command
+            # compensated with respect to the orientation movement of the robot
+            camera_velocity_z.data = camera_angular_gain * camera_angular_error - \
+                                     body_to_camera_velocity_gain_z * robot_velocity.angular.z
+
+            # publish camera velocity command
+            self._ctr_camera_cmd_vel_pub.publish(camera_velocity_z)
 
             # send feedback on the current marker size
             self._feedback.marker_side = marker_side
             self._act_server.publish_feedback(self._feedback)
-
-            # rospy.loginfo("control - marker side size error: %f" % linear_error)
-            # rospy.loginfo("control - camera center error: %f" % angular_error)
 
             # cycle timing
             r.sleep()
         
         # target marker reached
-        velocity.linear.x = 0
-        velocity.angular.z = 0
-        self._ctr_cmd_vel_pub.publish(velocity)
+        robot_velocity.linear.x = 0
+        robot_velocity.angular.z = 0
+        self._ctr_cmd_vel_pub.publish(robot_velocity)
 
-        # subscription not needed anymore. Remove it
+        # subscriptions not needed anymore. Remove it
         self._vision_sub.unregister()
+        self._camera_joint_state_sub.unregister()
 
         return True
-
 
 
 def main():
