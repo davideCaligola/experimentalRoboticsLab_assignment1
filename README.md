@@ -13,9 +13,9 @@ The requirements for the assignment are the following:
 Implement the assignment both in simulation (the world file aruco_assignment.world is given) and with the real robot.  
 In simulation, differently than with the real robot, do the "search" task only by rotating the camera, without rotating the whole robot.  
 The requirements have been fulfilled as follows:
-- branch [rosbot_sim](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_sim) (from [luk1897](https://github.com/luk1897)/Experimental_Robotics-Assignment_1)  
+- branch [rosbot_sim](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_sim) (from [luk1897](https://github.com/luk1897/Experimental_Robotics-Assignment_1))  
 implements the code for the simulation of the real rosbot. The architecture is based on a node implementing the controller and a node implementing the vision data handling,  
-- branch [rosbot_real](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_real) (from [luk1897](https://github.com/luk1897)/Experimental_Robotics-Assignment_1/tree/assignment-1_real_robot)  
+- branch [rosbot_real](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_real) (from [luk1897](https://github.com/luk1897/Experimental_Robotics-Assignment_1/tree/assignment-1_real_robot))  
 adapts the code in branch [rosbot_sim](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_sim) into the code loaded into the real rosbot to perform the given task,  
 - branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server)  
 implements the code for the simulation of the real rosbot. The architecture is based on action server, with a node controller, providing the server, a node logic, acting as client, and a node for handling the data coming from the camera,  
