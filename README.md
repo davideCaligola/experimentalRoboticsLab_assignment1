@@ -75,7 +75,7 @@ roslaunch assignment_1 assignment_1.launch rate_vis:=20
 ```  
 An example of simulation run is shown in the following video.
 
-https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/114524396/aebe5e4d-8c73-4959-a221-9eb78a624309
+https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/114524396/3a8f000c-2b90-4a1f-9511-701df0006fef
 
 
 # Architecture
