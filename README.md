@@ -1,134 +1,23 @@
-# rosbot_ros #
+# Introduction
+In this repository, the [ROS](https://www.ros.org) package `assignment_1` has been implemented to satisfy the requirements of the first assignment of the course [Experimental Robotics Laboratory](https://corsi.unige.it/en/off.f/2023/ins/66551?codcla=10635) of [Robotics Engineering](https://corsi.unige.it/en/corsi/10635) course by [University degli Studi di Genova](https://unige.it).  
+The assignment depends on the [aruco](https://github.com/pal-robotics/aruco_ros/tree/noetic-devel/aruco) package for acquiring and parsing the image from the camera. The robot is a [Husarion ROSbot 2R](https://husarion.com/#robots) and its model is provided by the package [rosbot_description](https://github.com/husarion/rosbot_ros/tree/noetic/src/rosbot_description). Both packages, `aruco` and `rosbot_description`, are included in this repository for convenience.  
+The requirements for the assignment are the following:
+ - The robot starts at coordinates (0,0) in a given environment with 4 markers with IDs 11, 12, 13 and 15.  
+ The markers have the following meaning:  
+    - Marker 11: rotate until you find marker 12; then reach marker 12
+    - Marker 12: rotate until you find marker 12; then reach marker 13  
+    - Marker 13: rotate until you find marker 12; then reach marker 15  
+    - Marker 15: done!  
 
-ROS packages for ROSbot 2.0 and ROSbot 2.0 Pro.
-
-Demonstrations of **docker-compose** configurations are shown in [rosbot-docker](https://github.com/husarion/rosbot-docker/tree/ros1/demo) repo.
-It presents how to run an autonomous mapping and navigation demo with ROSbot and Navigation2 stack.
-
-# Quick start (simulation) #
-
-## Installation ##
-
-We assume that you are working on Ubuntu 16.04 and already have installed ROS Kinetic. If not, follow the [ROS install guide](http://wiki.ros.org/kinetic/Installation/Ubuntu)
-
-Prepare the repository:
-```bash
-cd ~
-mkdir ros_workspace
-mkdir ros_workspace/src
-cd ~/ros_workspace/src
-catkin_init_workspace
-cd ~/ros_workspace
-catkin_make
-```
-
-Above commands should execute without any warnings or errors.
-
-Clone this repository to your workspace:
-
-```bash
-cd ~/ros_workspace/src
-git clone https://github.com/husarion/rosbot_ros.git -b noetic
-```
-
-Install dependencies:
-
-```bash
-cd ~/ros_workspace
-rosdep install --from-paths src --ignore-src -r -y
-```
-
-Build the workspace:
-
-```bash
-cd ~/ros_workspace
-catkin_make
-```
-
-From this moment you can use rosbot simulations. Please remember that each time, when you open new terminal window, you will need to load system variables:
-
-```bash
-source ~/ros_workspace/devel/setup.sh
-```
-
-## Creating, saving and loading the Map with Gazebo ##
-
-Run the following commands below. Use the teleop to move the robot around to create an accurate and thorough map.
-
-In Terminal 1, launch the Gazebo simulation:
-
-```bash
-roslaunch rosbot_description rosbot_rviz_gmapping.launch
-```
-
-In Terminal 2, start teleop and drive the ROSbot, observe in Rviz as the map is created:
-
-```bash
-roslaunch rosbot_navigation rosbot_teleop.launch
-```
-
-When you are satisfied with created map, you can save it. Open new terminal and save the map to some given path: 
-
-```bash
-rosrun map_server map_saver -f ~/ros_workspace/src/rosbot_ros/src/rosbot_navigation/maps/test_map
-```
-
-Now to make saved map loading possible you have to close all previous terminals and run the following commands below. Once loaded, use rviz to set 2D Nav Goal and the robot will autonomously reach the indicated position
-
-In Terminal 1, launch the Gazebo simulation
-
-```bash
-roslaunch rosbot_description rosbot_rviz_amcl.launch
-```
-
->**Tip:**
->
->If you have any problems with laser scan it probably means that you don't have a dedicated graphic card (or lack appropriate drivers). If that's the case then you'll have to change couple of things in `/rosbot_description/urdf/rosbot_gazebo` file: <br><br>
->Find:   `<!-- If you cant't use your GPU comment RpLidar using GPU and uncomment RpLidar using CPU gazebo plugin. -->`
-next coment RpLidar using GPU using `<!-- -->` from `<gazebo>` to `</gazebo>` like below:
-> ```xml
-> <!-- gazebo reference="rplidar">
->   <sensor type="gpu_ray" name="head_rplidar_sensor">
->     <pose>0 0 0 0 0 0</pose>
->     <visualize>false</visualize>
->     <update_rate>40</update_rate>
->     <ray>
->       <scan>
->         <horizontal>
->           <samples>720</samples>
->           <resolution>1</resolution>
->           <min_angle>-3.14159265</min_angle>
->           <max_angle>3.14159265</max_angle>
->         </horizontal>
->       </scan>
->       <range>
->         <min>0.2</min>
->         <max>30.0</max>
->         <resolution>0.01</resolution>
->       </range>
->       <noise>
->         <type>gaussian</type>
->         <mean>0.0</mean>
->         <stddev>0.01</stddev>
->       </noise>
->     </ray>
->     <plugin name="gazebo_ros_head_rplidar_controller" 
->filename="libgazebo_ros_gpu_laser.so">
->      <topicName>/rosbot/laser/scan</topicName>
->       <frameName>rplidar</frameName>
->     </plugin>
->   </sensor>
-> </gazebo -->
->```
->
->Now uncomment RpLidar using CPU plugin removing `<!-- -->`.
->
->If you want to make your laser scan visible just change:
->```xml
-><visualize>false</visualize>
->```
->to:
->```xml
-><visualize>true</visualize>
->```
->in the same plug in.
+"reach marker XXX" means that the XXX marker must be at least 200 pixels in the camera frame.  
+Implement the assignment both in simulation (the world file aruco_assignment.world is given) and with the real robot.  
+In simulation, differently than with the real robot, do the "search" task only by rotating the camera, without rotating the whole robot.  
+The requirements have been fulfilled as follows:
+- branch [rosbot_sim](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_sim)  
+implements the code for the simulation of the real rosbot. The architecture is based on a node implementing the controller and a node implementing the vision data handling,  
+- branch [rosbot_real](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_real)  
+adapts the code in branch [rosbot_sim](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/rosbot_sim) into the code loaded into the real rosbot to perform the given task,  
+- branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server)  
+implements the code for the simulation of the real rosbot. The architecture is based on action server, with a node controller, providing the server, a node logic, acting as client, and a node for handling the data coming from the camera,  
+- branch [action_server_rot_camera](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server_rot_camera)  
+implements the code for the simulation of the rosbot with rotating camera exploiting the action server controller architecture developed in branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server).  
