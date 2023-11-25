@@ -90,7 +90,7 @@ def get_close_marker():
 
     global vision_id, camera_center, marker_center, marker_top_left, marker_bottom_left, pub, state, id_marker
     
-    target = 175    # marker side to reach
+    target = 185    # marker side to reach
     
     velocity = Twist()
     
@@ -99,7 +99,7 @@ def get_close_marker():
     
     side = np.sqrt(np.power(x_cord,2) + np.power(y_cord,2))  # computing the side
     
-    linear_gain = 0.0025
+    linear_gain = 0.002
     angular_gain = 0.002
           
     angular_error = camera_center[0] - marker_center[0]  # angular error between camera center and marker center
@@ -142,7 +142,7 @@ def search_marker():
          
          print("Looking for the target!")
          
-         velocity.angular.z = -0.5   # getting on rotating
+         velocity.angular.z = -0.4   # getting on rotating
     
          pub.publish(velocity)
          

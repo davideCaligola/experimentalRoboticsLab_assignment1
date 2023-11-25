@@ -1,4 +1,4 @@
-# Experimental_Robotics - Assignment_1
+# Experimental_Robotics-Assignment_1
 
 ## IMPORTANT 
 
@@ -20,8 +20,6 @@ If you are using the professor's Docker Image, add the line ```source /opt/ros/n
 You need to use Git. Run: ```sudo apt-get install git```
 
 Then run on your shell: ```git clone https://github.com/luk1897/Experimental_Robotics-Assignment_1```
-
-Then install xterm because it is used to check what the robot is doing. Run ```sudo apt-get install xterm```
 
 Finally, you need to have aruco in your pc. Run ```git clone https://github.com/CarmineD8/aruco_ros ```
 
@@ -133,7 +131,7 @@ def vision_cb(vision_msg):
 	    marker_bottom_left = vision_msg.marker_bottom_left
 	    marker_bottom_right = vision_msg.marker_bottom_right
 ``` 
-Function for getting information (id, camera center, marker center and corners) regarding markers from vision node through /info_vision topic.
+Function for getting information (id, camera center, marker center and corners) regarding markers from vision node.
 
 #### get_close_marker
 
@@ -151,7 +149,7 @@ def get_close_marker():
     
     side = np.sqrt(np.power(x_cord,2) + np.power(y_cord,2))  # computing the side
     
-    linear_gain = 0.0025
+    linear_gain = 0.002
     angular_gain = 0.002
           
     angular_error = camera_center[0] - marker_center[0]  # angular error between camera center and marker center
@@ -187,7 +185,7 @@ def search_marker():
          
          print("Looking for the target!")
          
-         velocity.angular.z = -0.5   # getting on rotating
+         velocity.angular.z = -0.4   # getting on rotating
     
          pub.publish(velocity)
          
@@ -201,14 +199,6 @@ def search_marker():
 ```
 Function for allowing the robot to rotate until it finds the desired id marker.
 
-## Messages
-
-### RobotVision.msg
-
-![immagine](https://github.com/luk1897/Experimental_Robotics-Assignment_1/assets/80416766/ffdf61a3-5fe2-4dca-b9f1-2084d5ec7764)
-
-This message is fundamental to share the informations regarding the camera and the markers from robot_vision node to control node.
-
 ## Flowchart
 
 ## Outline of the assignment and the whole environment
@@ -219,7 +209,6 @@ This message is fundamental to share the informations regarding the camera and t
 * The linear gain was reduced from 0.0025 to 0.002 in the real robot.
 * The angular velocity was reduced from -0.5 to -0.4 in the real robot.
 * Of course, there is no need for gazebo and urdf parts in the real robot.
-* The threshold to reach a marker was increased from 175 pixels to 185 pixels in the real robot.
 
 ## Results
 
