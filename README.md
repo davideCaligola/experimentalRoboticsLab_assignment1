@@ -84,7 +84,7 @@ To manage the rosbot in a flexible way, an architecture based on an action serve
 - [contro_act_server.py](#control_act_serverpy-source)
 - [robot_vision.py](#robot_visionpy-source)  
 
-The developed nodes and the Gazebo and RViz environment are organized as shown in the following `rqt_graph`:  
+The developed nodes, the Gazebo and RViz environment are organized as shown in the following `rqt_graph`:  
 <img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>  
 *`rqt_graph` of the rosbot simulation*
 
@@ -120,9 +120,11 @@ To look for the target marker id, the node sends on the topic `/cmd_vel` an angu
     - it provides as feedback, the current marker id and marker size seen by teh camera  
     - it returns as result `True`, if the marker size in the camera frame reaches the goal marker size threshold; `False` if the goal is preempted.  
 
-To reach the target marker, the controller publishes two control velocities as twist on the topic `/cmd_vel`:
-- linear velocity along x-axis to get close to the target marker. The amplitude is proportional to the error between the marker side threshold and the size of the marker side in the current camera frame  
-- angular velocity along z-axis to keep the middle of the marker aligned with the center of the camera. The command is proportional to the distance between the two centers.  
+To reach the target marker, the controller publishes two control velocities as twist on the topic `/cmd_vel` to control the rosbot:
+- linear velocity along x-axis to get close to the target marker.  
+  The amplitude is proportional to the difference between the marker side threshold and the size of the marker side seen in the current camera frame  
+- angular velocity along z-axis to keep the middle of the marker aligned with the center of the camera.  
+  The command is proportional to the distance between the two centers.  
 
 The implemented control law is represented in the following schema:  
 <img src="./assets/control_schema.png" alt="control_act_server.py control schema"/>  
@@ -154,7 +156,7 @@ float32[] marker_bottom_right
 The package can be improve considering the following points:
 - there is not any error handling,
 - the vision system handles only one marker per time. If more than a marker is in the camera view, only the first one in the list provided by the camera is considered,
-- if the camera does not find the searched marker id, the rosbot keeps on turning on itself looking for the marker id indefinitely. It could be implemented a timeout.
+- if the camera does not find the searched marker id, the rosbot keeps on turning on itself looking for the marker id indefinitely. It could be implemented a timeout or any other exception handler.
 - there is not any obstacle avoidance. If, by any chance, the control is not able to reach the threshold for the marker size in the camera frame, it will crash against the marker,
 - if, while reaching the target marker id, the marker is no longer within the vision of the camera, the behaviour of the robot could be unexpected,
 - the control is a simple proportional controller tuned heuristically. A better controller could be designed,  
