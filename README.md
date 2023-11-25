@@ -6,30 +6,14 @@ In this document the following arguments will be presented:
     - [logic.py](#logicpy)
     - [control_action_server.py](#control_act_serverpy)
     - [robot_vision.py](#robot_visionpy)
-    - [Nodes graph](#nodes-graph)
 - [Improvements](#improvements)
 
 # Introduction
 In this repository, the [ROS](https://www.ros.org) package `assignment_1` has been implemented to satisfy the requirements of the first assignment of the course [Experimental Robotics Laboratory](https://corsi.unige.it/en/off.f/2023/ins/66551?codcla=10635) of [Robotics Engineering](https://corsi.unige.it/en/corsi/10635) course by [University degli Studi di Genova](https://unige.it).  
 The assignment depends on the [aruco](https://github.com/pal-robotics/aruco_ros/tree/noetic-devel/aruco) package for acquiring and parsing the image from the camera. The robot is a [Husarion ROSbot 2R](https://husarion.com/#robots) and its model is provided by the package [rosbot_description](https://github.com/husarion/rosbot_ros/tree/noetic/src/rosbot_description). Both packages, `aruco` and `rosbot_description`, are included in this repository for convenience.  
-The requirements for the assignment are the following:
- - The robot starts at coordinates (0,0) in a given environment with 4 markers with IDs 11, 12, 13 and 15.  
- The markers have the following meaning:  
-    - Marker 11: rotate until you find marker 12; then reach marker 12
-    - Marker 12: rotate until you find marker 12; then reach marker 13  
-    - Marker 13: rotate until you find marker 12; then reach marker 15  
-    - Marker 15: done!  
+The requirements for the assignment is to look for markers in the environment and reach them. For further details on the requirements, see [main](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/main#Introduction) branch.
 
-"reach marker XXX" means that the XXX marker must be at least 200 pixels in the camera frame.  
-Implement the assignment both in simulation (the world file aruco_assignment.world is given) and with the real robot.  
-In simulation, differently than with the real robot, do the "search" task only by rotating the camera, without rotating the whole robot.  
-The requirements have been fulfilled as follows:
-- branch [action_server](https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/tree/action_server)  
-implements the code for the simulation of the real rosbot implemented with an architecture based on an action server controller  
-- branch [action_server_rot_camera]()  
-implements the code for the simulation of the rosbot with rotating camera.  
-
-> Due to working conditions, the pixel threshold for the marker size within the frame camera has been reduced to 175 pixels.
+> Due to working conditions, the pixel threshold for the marker size within the frame camera has been reduced to 175 pixels with respect to the 200 pixed defined in the assignment requirements.
 
 In the following sections, more insights on how to install and use the provided packages and more details on the used architecture are presented.
 
@@ -71,7 +55,7 @@ Launch the simulation
 ```
 roslaunch assignment_1 assignment_1.launch
 ```
-See section [Use](#use) for the available launch parameters.  
+See section [Use](#use) for the available launch options.  
 
 # Use
 The simulation can be started with the provided launch file:
@@ -95,12 +79,30 @@ https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/114
 
 
 # Architecture
-To manage the rosbot in a flexible way, an architecture based on an action server has been developed in the following three nodes.  
-## logic.py
+To manage the rosbot in a flexible way, an architecture based on an action server has been developed and three nodes have been developed:
+- [logic.py](#logicpy)
+- [contro_act_server.py](#control_act_serverpy)
+- [robot_vision.py](#robot_visionpy)  
+
+The developed nodes and the Gazebo and RViz environment are organized as shown in the following `rqt_graph`:
+
+<style>
+    p.centered {
+        text-align: center
+    }
+</style>
+<p class="centered">
+    <img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>
+</p>
+<p class="centered">rqt_graph of the rosbot simulation</p>
+
+The following sections describes in more details each developed node.
+
+## logic.py ([source](./assignment_1/script/logic.py))
 It coordinates the action the rosbot needs to achieve sending goals to the action server implemented in the controller:  
  - defines the list of marker ids to look for  
- - sends to the action server `robotCtrl_search` the goal with the marker id to look for  
- - sends to the action server `robotCtrl_reach` the goal with the marker id to reach and the threshold size of the marker side seen in the camera frame.  
+ - sends to the action server `/robotCtrl_search` the goal with the marker id to look for  
+ - sends to the action server `/robotCtrl_reach` the goal with the marker id to reach and the threshold size of the marker side seen in the camera frame.  
  - quits the simulation.  
 
 It implements a simple state machine to control the actions of the rosbot, as represented in the following state machine:
@@ -114,52 +116,66 @@ It implements a simple state machine to control the actions of the rosbot, as re
 </p>
 <p class="centered">logic.py node state machine</p>
 
-## control_act_server.py  
+## control_act_server.py ([source](./assignment_1/script/control_act_server.py))  
 It subscribes to the topic `/info_vision` to receive information about  
 - marker id
 - marker 4 corners position within the camera frame
 - marker and camera center position within the camera frame  
 
 It implements two action servers:  
-- `robotCtrl_search`
+- `/robotCtrl_search` (see [RobotCtrl_search.action](./assignment_1/action/RobotCtrl_search.action) definition)
     - it receives as goal the marker id to look for
     - it provides as feedback the current seen id
     - it returns as result `True`, if the marker is found; `False` if the goal is preempted
 
-To look for the target marker id, the ode sends on the topic `/cmd_vel` an angular velocity command along the z-axis to rotates the robot on itself.  
+To look for the target marker id, the node sends on the topic `/cmd_vel` an angular velocity command along the z-axis to rotates the robot on itself.  
 
-- `robotCtrl_reach`
+- `/robotCtrl_reach` (see [RobotCtrl_reach.action](./assignment_1/action/RobotCtrl_search.action) definition)
     - it receives as goal the marker id to reach and the size threshold the marker must have within the camera size  
     - it provides as feedback, the current marker id and marker size seen by teh camera  
     - it returns as result `True`, if the marker size in the camera frame reaches the goal marker size threshold; `False` if the goal is preempted.  
 
-To reach the target marker, the controller publishes two control velocity on the topic `/cmd_vel`:
-- linear velocity along x-axis to get close to the target marker. The amplitude is proportional to the error between the marker side threshold and the size of the marker size in the current camera frame  
+To reach the target marker, the controller publishes two control velocities as twist on the topic `/cmd_vel`:
+- linear velocity along x-axis to get close to the target marker. The amplitude is proportional to the error between the marker side threshold and the size of the marker side in the current camera frame  
 - angular velocity along z-axis to keep the middle of the marker aligned with the center of the camera. The command is proportional to the distance between the two centers.  
 
-The reach control is considered successful when the size of marker side seen in the camera is not less than the specified threshold.  
-
-## robot_vision.py  
-It subscribes to the following camera topics:
-- `/camera/color/camera_info`
-    to calculate the position of the camera center  
-- `/camera/color/image_raw`  
-    to extract information about the marker in view  
-
-It publishes the topic `/info_vision`, which provides data about the current seen marker id and the four corners of the marker.
-
-## Nodes graph
-the relationship among the nodes in the packages is shown in the following `rqt_graph`:
-
+The implemented control law is represented in the following schema:
 <style>
     p.centered {
         text-align: center
     }
 </style>
 <p class="centered">
-    <img src="./assets/rqt_graph.png" alt="rqt_graph action_server"/>
+    <img src="./assets/control_schema.png" alt="control_act_server.py control schema"/>
 </p>
-<p class="centered">rqt_graph of the rosbot simulation</p>
+<p class="centered">logic.py node state machine</p>
+
+The reach control is considered successful when the size of marker side seen in the camera is not less than the specified threshold.  
+
+## robot_vision.py ([source](./assignment_1/script/robot_vision.py))  
+It subscribes to the following camera topics:
+- `/camera/color/camera_info`  
+    to calculate the position of the camera center  
+- `/camera/color/image_raw`  
+    to extract information about the marker in view  
+
+It publishes the topic `/info_vision`, which provides data about the current seen marker id and the four corners of the marker.
+
+```
+int32[] ids
+float32[] camera_center
+float32[] marker_center
+float32[] marker_top_right
+float32[] marker_top_left
+float32[] marker_bottom_left
+float32[] marker_bottom_right
+```
+<style>
+    p.centered {
+        text-align: center
+    }
+</style>
+<p class="centered"><kbd>/info_vision</kbd> topic</p>
 
 # Improvements
 The package can be improve considering the following points:

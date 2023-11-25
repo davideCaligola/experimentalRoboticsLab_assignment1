@@ -186,8 +186,6 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         # keep on getting close till the target marker side size
         # is lower than the threshold
         self._marker_side_th = None
-        # tollerance error on marker side
-        self._marker_side_tollerance = 1
 
         # create feedback message
         self._feedback = a1_msgs.RobotCtrl_reachFeedback()
@@ -239,6 +237,26 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         self._act_server.set_succeeded(result = a1_msgs.RobotCtrl_reachResult(success))
         
     
+    def get_marker_side(self):
+        """
+        Provides the maximum vertical marker side seen from the camera
+
+        :return: float: maximum vertical marker side seen from the camera
+        """
+        x_cord_right = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
+        y_cord_right = self._camera_info.marker_top_right[1] - self._camera_info.marker_bottom_right[1]
+
+        x_cord_left = self._camera_info.marker_top_left[0] - self._camera_info.marker_bottom_left[0]
+        y_cord_left = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
+        
+        # consider just vertical side, since horizontal one could be seen sideways, thus,
+        # in some case, could never reach the threshold
+        marker_side_right = math.sqrt(math.pow(x_cord_right,2) + math.pow(y_cord_right,2))
+        marker_side_left = math.sqrt(math.pow(x_cord_left,2) + math.pow(y_cord_left,2))
+
+        return max(marker_side_right, marker_side_left)
+
+
     def reach_marker_id(self, marker_side_th: float):
         """
         Gets close to the target marker up to a threshold.
@@ -262,15 +280,12 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
         # velocity reference
         velocity = Twist()
 
-        # check just vertical side
-        x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
-        y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
-
-        marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
+        # get maximum vertical marker side
+        marker_side = self.get_marker_side()
 
         self._feedback.id = self._target_id
     
-        while(abs(marker_side - marker_side_th) > self._marker_side_tollerance):
+        while(marker_side < marker_side_th):
 
             # check that the goal has not been requested to be cleared
             if self._act_server.is_preempt_requested():
@@ -279,12 +294,9 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
                 self._act_server.set_preempted()
                 return False
             
-            x_cord = self._camera_info.marker_top_right[0] - self._camera_info.marker_bottom_right[0]
-            y_cord = self._camera_info.marker_top_left[1] - self._camera_info.marker_bottom_left[1]
-            
-            # consider just vertical side, since horizontal one could be seen sideways, thus,
+            # consider just vertical sides, since horizontal one could be seen sideways, thus,
             # in some case, could never reach the threshold
-            marker_side = math.sqrt(math.pow(x_cord,2) + math.pow(y_cord,2))
+            marker_side = self.get_marker_side()
         
             # send feedback on the current marker size
             self._feedback.marker_side = marker_side
