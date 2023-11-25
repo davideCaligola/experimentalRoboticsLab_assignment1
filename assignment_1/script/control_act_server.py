@@ -332,7 +332,6 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
 
         # camera velocity reference
         camera_velocity_z = Float64(0)
-        body_to_camera_velocity_gain_z = 1
 
         # get maximum vertical marker side
         marker_side = self.get_marker_side()
@@ -376,7 +375,7 @@ class RobotCtrlServer_reachMarkerId(RobotCtrl_base):
             # camera velocity command
             # compensated with respect to the orientation movement of the robot
             camera_velocity_z.data = camera_angular_gain * camera_angular_error - \
-                                     body_to_camera_velocity_gain_z * robot_velocity.angular.z
+                                     robot_velocity.angular.z
 
             # publish camera velocity command
             self._ctr_camera_cmd_vel_pub.publish(camera_velocity_z)
