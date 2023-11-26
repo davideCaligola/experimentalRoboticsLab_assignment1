@@ -225,6 +225,9 @@ This message is fundamental to share the informations regarding the camera and t
 
 https://github.com/luk1897/Experimental_Robotics-Assignment_1/assets/80416766/d64546dd-3616-4faf-9d98-949b5a38abfb
 
+https://github.com/davideCaligola/experimentalRoboticsLab_assignment1/assets/80416766/bf654ed0-ef43-4e5b-948c-bcbc61ad6fa0
+
+
 
 ##  Possibile improvements
 	
