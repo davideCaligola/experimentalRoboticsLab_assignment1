@@ -26,53 +26,52 @@
  or implied, of Rafael Muñoz Salinas.
  */
 
+#ifndef ArucoDictionaryBasedMarkerDetector_H
+#define ArucoDictionaryBasedMarkerDetector_H
+
+#include "dictionary.h"
 #include "markerlabeler.h"
 
-#ifdef USE_SVM_LABELER
-#include "markerlabelers/svmmarkers.h"
-#endif /* USE_SVM_LABELER */
-
-#include "markerlabelers/dictionary_based.h"
+#include <opencv2/core/core.hpp>
 
 namespace aruco
 {
 
-cv::Ptr<MarkerLabeler> MarkerLabeler::create(Dictionary::DICT_TYPES dict_type, float error_correction_rate)
+/**Labeler using a dictionary
+ */
+class DictionaryBased : public MarkerLabeler
 {
-  Dictionary dict = Dictionary::loadPredefined(dict_type);
-  DictionaryBased* db = new DictionaryBased();
-  db->setParams(dict, error_correction_rate);
-  return db;
-}
-
-cv::Ptr<MarkerLabeler> MarkerLabeler::create(std::string detector, std::string params)
-{
-  (void)params;
-  if (detector == "SVM")
+public:
+  virtual ~DictionaryBased()
   {
-
-#ifdef USE_SVM_LABELER
-    SVMMarkers* svm = new SVMMarkers;
-    if (!svm->load(params))
-    throw cv::Exception(-1, "Could not open svm file :" + params, "Detector::create", " ", -1);
-    //*SVMmodel,dictsize, -1, 1, true);
-    return svm;
-#else
-    throw cv::Exception(-1, "SVM labeler not compiled", "Detector::create", " ", -1);
-#endif /* USE_SVM_LABELER */
-
-  }
-  else
-  {
-    Dictionary dict = Dictionary::load(detector);
-
-    // try with one from file
-    DictionaryBased* db = new DictionaryBased();
-    db->setParams(dict, std::stof(params));
-    return db;
   }
 
-  throw cv::Exception(-1, "No valid labeler indicated:" + detector, "Detector::create", " ", -1);
-}
+  // first, dictionary, second the maximum correction rate [0,1]. If 0, no correction, if 1, maximum allowed correction
+  void setParams(const Dictionary& dic, float max_correction_rate);
+
+  // main virtual class to o detection
+  bool detect(const cv::Mat& in, int& marker_id, int& nRotations, std::string &additionalInfo);
+
+  // returns the dictionary name
+  std::string getName() const;
+
+  int getNSubdivisions() const
+  {
+    return _nsubdivisions;
+  }
+
+private:
+  bool getInnerCode(const cv::Mat& thres_img, int total_nbits, std::vector<uint64_t>& ids);
+  cv::Mat rotate(const cv::Mat& in);
+  uint64_t touulong(const cv::Mat& code);
+  std::vector<Dictionary> vdic;
+  void toMat(uint64_t code, int nbits_sq, cv::Mat& out);
+  int _nsubdivisions = 0;
+  float _max_correction_rate;
+  std::string dicttypename;
+  std::map<uint32_t, std::vector<Dictionary*>> nbits_dict;
+};
 
 } // namespace aruco
+
+#endif /* ArucoDictionaryBasedMarkerDetector_H */

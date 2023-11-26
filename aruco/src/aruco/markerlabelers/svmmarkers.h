@@ -26,53 +26,55 @@
  or implied, of Rafael Muñoz Salinas.
  */
 
+#ifndef SVMMARKERS_H
+#define SVMMARKERS_H
+
 #include "markerlabeler.h"
-
-#ifdef USE_SVM_LABELER
-#include "markerlabelers/svmmarkers.h"
-#endif /* USE_SVM_LABELER */
-
-#include "markerlabelers/dictionary_based.h"
 
 namespace aruco
 {
 
-cv::Ptr<MarkerLabeler> MarkerLabeler::create(Dictionary::DICT_TYPES dict_type, float error_correction_rate)
+/**
+ * SVM Marker Detector Class
+ */
+namespace impl
 {
-  Dictionary dict = Dictionary::loadPredefined(dict_type);
-  DictionaryBased* db = new DictionaryBased();
-  db->setParams(dict, error_correction_rate);
-  return db;
+
+class SVMMarkers;
+
 }
 
-cv::Ptr<MarkerLabeler> MarkerLabeler::create(std::string detector, std::string params)
+class SVMMarkers : public MarkerLabeler
 {
-  (void)params;
-  if (detector == "SVM")
+  impl::SVMMarkers *_impl;
+public:
+
+  SVMMarkers();
+  virtual ~SVMMarkers()
   {
-
-#ifdef USE_SVM_LABELER
-    SVMMarkers* svm = new SVMMarkers;
-    if (!svm->load(params))
-    throw cv::Exception(-1, "Could not open svm file :" + params, "Detector::create", " ", -1);
-    //*SVMmodel,dictsize, -1, 1, true);
-    return svm;
-#else
-    throw cv::Exception(-1, "SVM labeler not compiled", "Detector::create", " ", -1);
-#endif /* USE_SVM_LABELER */
-
-  }
-  else
-  {
-    Dictionary dict = Dictionary::load(detector);
-
-    // try with one from file
-    DictionaryBased* db = new DictionaryBased();
-    db->setParams(dict, std::stof(params));
-    return db;
   }
 
-  throw cv::Exception(-1, "No valid labeler indicated:" + detector, "Detector::create", " ", -1);
-}
+  /**
+   * @brief getName
+   * @return
+   */
+  std::string getName() const
+  {
+    return "SVM";
+  }
+
+  // loads the svm file that detects the markers
+  bool load(std::string path = "");
+
+  /**
+   * Detect marker in a canonical image.
+   * Return marker id in 0 rotation, or -1 if not found
+   * Assign the detected rotation of the marker to nRotation
+   */
+  bool detect(const cv::Mat &in, int & marker_id, int &nRotations, std::string &additionalInfo);
+  int getBestInputSize();
+};
 
 } // namespace aruco
+
+#endif /* SVMMARKERS_H */
