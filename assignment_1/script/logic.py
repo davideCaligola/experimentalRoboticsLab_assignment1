@@ -1,6 +1,5 @@
 #! /usr/bin/env python
 
-from matplotlib.scale import LogisticTransform
 import rospy
 import actionlib
 from actionlib_msgs.msg import GoalStatus
